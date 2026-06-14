@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "304025860925",
+    "project_id": "ionic-499116",
+    "storage_bucket": "ionic-499116.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304025860925:android:b9f6edeca8c0f1927f2354",
+        "android_client_info": {
+          "package_name": "com.tauri.googleauth"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "304025860925-mi1mlaqlpoamvrnfi8vhr83hg558klbp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tauri.googleauth",
+            "certificate_hash": "148c3fa32b4f563bedd84768a6ed2021f58ca517"
+          }
+        },
+        {
+          "client_id": "304025860925-lhf78thaj8p1ncq8sqavk5vktsqcumfd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-5hrBydTBTNXNwAgd1SZ_vGNTnc17AT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "304025860925-ejc1k9quboqghc6m53njs9k67ebnq7cc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
