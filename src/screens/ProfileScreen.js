@@ -54,10 +54,12 @@ export default function ProfileScreen({ user, onLogout }) {
 
       {/* Logout button */}
       <View className="mx-4">
+
         <TouchableOpacity
           onPress={onLogout}
+          className="bg-red-600 rounded-xl py-4 items-center"
         >
-          <Text className="text-white hover:text-red-600 transition-color font-black text-sm tracking-wider">Keluar</Text>
+          <Text className="text-white font-black text-sm tracking-wider">Keluar</Text>
         </TouchableOpacity>
       </View>
 

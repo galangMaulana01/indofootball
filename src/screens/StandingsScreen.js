@@ -74,7 +74,7 @@ export default function StandingsScreen({ onTeamClick }) {
     <View className="flex-1 bg-equd w-full pb-20">
 
       {/* Header */}
-      <View className="bg-culos px-4 py-3 flex-row items-center gap-3">
+      <View className="pl-3 flex-row items-center gap-3">
         {leagueLogo && (
           <Image source={{ uri: leagueLogo }} className="w-8 h-8" resizeMode="contain" />
         )}
@@ -99,9 +99,9 @@ export default function StandingsScreen({ onTeamClick }) {
                   {/* Nama grup di luar card */}
                   <Text className="text-sm font-black text-white tracking-wide text-center mb-2">{group.groupName}</Text>
 
-                  <View className="overflow-hidden rounded-xl">
+                  <View className="overflow-hidden border-2 border-culos rounded-sm">
                     {/* Table header */}
-                    <View className="flex-row items-center bg-white/10 py-2.5 px-3">
+                    <View className="flex-row items-center bg-culos py-2.5 px-3">
                       <Text className="w-6 text-center text-[10px] font-bold text-gray-400 uppercase">No</Text>
                       <Text className="flex-1 text-[10px] font-bold text-gray-400 uppercase pl-2">Tim</Text>
                       <Text className="w-6 text-center text-[10px] font-bold text-gray-400 uppercase">P</Text>
@@ -139,7 +139,7 @@ export default function StandingsScreen({ onTeamClick }) {
                       return (
                         <View
                           key={sIdx}
-                          className={`flex-row items-center py-2.5 px-3 ${isEven ? 'bg-culos' : 'bg-white/5'}`}
+                          className={`flex-row items-center py-2.5 px-3 bg-equd`}
                         >
                           <Text className="w-6 text-center text-xs font-bold text-gray-400">{standing.position}</Text>
 

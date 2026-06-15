@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, Path } from 'react-native-svg';
 
 const API_BASE_URL = "https://sportmonks-tawny.vercel.app";
@@ -139,8 +140,11 @@ const renderOverview = () => {
 
     return (
       <View className="px-2 relative mt-2 mb-8">
-
-        <View className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-0" />
+        {/* Garis putus-putus tengah (Timeline Axis) */}
+        <View 
+          className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-transparent border-l border-white z-0" 
+          style={{ transform: [{ translateX: -0.5 }], borderStyle: 'dashed' }} 
+        />
 
         {groupedGroups.map((group, i) => {
           const isHome = group.participant_id === homeTeam.id;
@@ -358,12 +362,12 @@ const renderOverview = () => {
     };
 
     return (
-      <View className="mb-8">
-        <Text className="text-xs font-bold text-white uppercase tracking-wider pb-3 text-center mb-1">Starting Elevent</Text>
+      <View className="space-y-4 mb-8">
+        <Text className="text-xs font-bold text-white uppercase traking-wider pb-3 text-center mb-1">Starting Elevent</Text>
           <View className="bg-culos shadow-sm rounded-xl p-4 mb-4">
             {renderList(homeStart, awayStart)}
           </View>
-        <Text className="text-xs font-bold text-white uppercase tracking-wider pb-3 text-center mb-1">Cadangan</Text>
+        <Text className="text-xs font-bold text-white uppercase traking-wider pb-3 text-center mb-1">Cadangan</Text>
           <View className="bg-culos shadow-sm rounded-xl p-4">
             {renderList(homeSubs, awaySubs)}
           </View>
@@ -374,12 +378,10 @@ const renderOverview = () => {
 
   return (
     <View className="flex-1 bg-equd">
-      
-      {/* FIX 3 & 4: Pakai ImageBackground dan panggil uri dari matchData.venueImg */}
       <ImageBackground 
         source={{ uri: matchData?.venueImg }} 
-        style={{ paddingTop: 16, paddingBottom: 32 }}
-        className="relative z-10 bg-equd"
+        imageStyle={{ opacity: 0.2 }}
+        className="relative z-10 bg-equd pt-4 pb-8"
       >
         <View className="max-w-2xl mx-auto px-4 w-full">
           <View className="flex-row items-center justify-start mb-6">
@@ -403,7 +405,7 @@ const renderOverview = () => {
               </View>
               <View className="items-center w-[30%]">
                 <Text className="text-4xl font-black tracking-wider text-white mb-2">{matchData.homeScore} - {matchData.awayScore}</Text>
-                <Text className="text-[10px] font-bold text-gray-200 tracking-wide uppercase">{matchData.statusLabel}</Text>
+                <Text className="text-[10px] font-bold text-merah bg-white px-3 py-1.5 rounded-full shadow-sm tracking-wide uppercase">{matchData.statusLabel}</Text>
               </View>
               <View className="items-center w-[35%]">
                 <Image source={{ uri: matchData.awayTeam.image_path || 'https://placehold.co/60' }} className="w-12 h-12 mb-2" resizeMode="contain" />
@@ -415,15 +417,14 @@ const renderOverview = () => {
       </ImageBackground>
       {/* FIX 5: Hapus </LinearGradient> di sini karena udah diganti jadi ImageBackground */}
 
-      <View className="bg-culos z-50 shadow-sm">
-
-
+      <View className="bg-equd z-50 shadow-sm">
+        {/* Sisa kode Tab ScrollView kamu di bawahnya... */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false} 
-          className="max-w-2xl mx-auto w-full py-3 px-4"
+          className="max-w-2xl mx-auto w-full shadow-sm shadow-white py-3"
+          contentContainerStyle={{ paddingHorizontal: 16, flexDirection: 'row' }}
         >
-
           {['overview', 'events', 'stats', 'lineup'].map((tab) => (
             <TouchableOpacity
               key={tab}

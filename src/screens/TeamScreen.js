@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { activeSeasonIdGlobal } from './MatchesScreen';
 
@@ -11,43 +11,58 @@ export default function TeamScreen({ teamId, goBack }) {
   const [squadPositions, setSquadPositions] = useState([]);
 
   useEffect(() => {
-    loadSquadData();
+    loadTeamAndSquadData();
   }, [teamId]);
 
-  const loadSquadData = async () => {
+  const loadTeamAndSquadData = async () => {
     setLoading(true);
     try {
       const seasonId = activeSeasonIdGlobal;
-      const squadRes = await fetch(`${API_BASE_URL}/squads/seasons/${seasonId}/teams/${teamId}`);
+      
+      // FIX UTAMA: Hit endpoint '/teams' khusus untuk narik data Venue,
+      // Dijalankan bareng dengan fetch '/squads' pakai Promise.all biar loading cepet.
+      const [teamRes, squadRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/teams/${teamId}?include=venue`),
+        fetch(`${API_BASE_URL}/squads/seasons/${seasonId}/teams/${teamId}`)
+      ]);
+
+      const teamJson = await teamRes.json();
       const squadJson = await squadRes.json();
-      let playersData = squadJson?.data || [];
-      if (playersData.length === 0) throw new Error("Tidak ada pemain");
 
-      const tInfo = playersData[0]?.team || {};
+      const tData = teamJson?.data || {};
+      const playersData = squadJson?.data || [];
+
+      // 1. Set Info Tim dan Venue dari tData (hasil fetch teams)
       setTeamInfo({
-        name: tInfo.name || "Tim",
-        logo: tInfo.image_path || "https://placehold.co/80",
-        venue: tInfo.venue?.name || null,
+        name: tData.name || "Tim",
+        logo: tData.image_path || "https://placehold.co/80",
+        venue: tData.venue?.name || null,
+        venueImg: tData.venue?.image_path || null, 
       });
 
-      const positionMap = new Map();
-      playersData.forEach(item => {
-        const player = item.player;
-        if (!player) return;
-        const posName = player.position?.name || "Lainnya";
-        if (!positionMap.has(posName)) positionMap.set(posName, []);
-        positionMap.get(posName).push(item);
-      });
+      // 2. Set Data Pemain (hasil fetch squads)
+      if (playersData.length === 0) {
+        setSquadPositions([]);
+      } else {
+        const positionMap = new Map();
+        playersData.forEach(item => {
+          const player = item.player;
+          if (!player) return;
+          const posName = player.position?.name || "Lainnya";
+          if (!positionMap.has(posName)) positionMap.set(posName, []);
+          positionMap.get(posName).push(item);
+        });
 
-      const posOrder = ["Goalkeeper", "Defender", "Midfielder", "Attacker"];
-      const sortedPositions = Array.from(positionMap.keys()).sort((a, b) => {
-        let idxA = posOrder.indexOf(a), idxB = posOrder.indexOf(b);
-        if (idxA === -1) idxA = 999;
-        if (idxB === -1) idxB = 999;
-        return idxA - idxB;
-      }).map(pos => ({ name: pos, players: positionMap.get(pos) }));
+        const posOrder = ["Goalkeeper", "Defender", "Midfielder", "Attacker"];
+        const sortedPositions = Array.from(positionMap.keys()).sort((a, b) => {
+          let idxA = posOrder.indexOf(a), idxB = posOrder.indexOf(b);
+          if (idxA === -1) idxA = 999;
+          if (idxB === -1) idxB = 999;
+          return idxA - idxB;
+        }).map(pos => ({ name: pos, players: positionMap.get(pos) }));
 
-      setSquadPositions(sortedPositions);
+        setSquadPositions(sortedPositions);
+      }
     } catch (e) {
       console.error(e);
       setSquadPositions([]);
@@ -58,25 +73,41 @@ export default function TeamScreen({ teamId, goBack }) {
   return (
     <View className="flex-1 bg-equd w-full">
 
-      {/* Header bar */}
-      <View className="bg-culos pt-4 pb-3 items-start px-4 gap-3">
-        <TouchableOpacity onPress={goBack} className="p-2 bg-white/10 rounded-full">
-          <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24">
-            <Path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </Svg>
-        </TouchableOpacity>
-      </View>
+      {/* Hero Section dengan Background Stadion */}
+      <ImageBackground
+        source={teamInfo.venueImg ? { uri: teamInfo.venueImg } : null}
+        style={{ paddingTop: 16, paddingBottom: 24 }}
+        className="relative z-10 bg-culos" // Warna solid jika tim tidak punya gambar stadion
+      >
+        {/* Overlay hitam transparan supaya logo & teks tetap terbaca */}
+        <View className="absolute top-0 left-0 right-0 bottom-0 bg-black/60 z-0" />
 
-      <ScrollView className="flex-1 w-full" showsVerticalScrollIndicator={false}>
+        {/* Header bar - Tombol Back */}
+        <View className="flex-row items-center justify-start px-4 mb-4 z-20">
+          <TouchableOpacity onPress={goBack} className="p-2 bg-black/30 rounded-full">
+            <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24">
+              <Path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </Svg>
+          </TouchableOpacity>
+        </View>
 
-        {/* Team hero section */}
-        <View className="bg-culos px-6 pt-4 pb-6 items-start">
+        {/* Team hero details */}
+        <View className="px-6 items-start z-20">
           <View className="w-24 h-24 rounded-full bg-white items-center justify-center mb-3 overflow-hidden">
             <Image source={{ uri: teamInfo.logo }} className="w-20 h-20" resizeMode="contain" />
           </View>
           <Text className="text-2xl font-black text-white uppercase tracking-wide">{teamInfo.name}</Text>
+          
+          {/* Label Nama Stadion */}
+          {teamInfo.venue && (
+            <View className="flex-row items-center mt-1.5 opacity-90">
+              <Text className="text-xs font-medium text-gray-200">🏟️ {teamInfo.venue}</Text>
+            </View>
+          )}
         </View>
+      </ImageBackground>
 
+      <ScrollView className="flex-1 w-full" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="items-center py-16">
             <ActivityIndicator size="large" color="#FC0B12" />
@@ -106,7 +137,6 @@ export default function TeamScreen({ teamId, goBack }) {
                       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) ageNum--;
                       age = ageNum;
                     }
-                    const isLast = pIdx === posGrp.players.length - 1;
 
                     return (
                       <View key={pIdx} className={`flex-row items-center px-4 py-3`}>

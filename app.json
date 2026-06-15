@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "firebase-auth",
+    "name": "indoScore",
     "slug": "firebase-auth",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
     "platforms": [
       "android"
     ],
     "android": {
       "package": "com.tauri.googleauth",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "icon": "./assets/logo.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "plugins": [
       "@react-native-google-signin/google-signin"

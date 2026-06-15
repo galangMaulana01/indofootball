@@ -63,9 +63,6 @@ function SplashScreen({ onFinish }) {
           className="w-48 h-20"
           resizeMode="contain"
         />
-        <Text className="text-white text-xs tracking-widest mt-4">
-          Live Score & Jadwal
-        </Text>
       </Animated.View>
 
       <LoadingBar />
@@ -162,7 +159,7 @@ export default function App() {
           ) : (
             <TouchableOpacity
               onPress={() => setAuthModalVisible(true)}
-              className="bg-merah px-4 py-2 rounded-xl"
+              className="bg-red-600 px-4 py-2 rounded-xl"
             >
               <Text className="text-xs font-bold text-white">Masuk</Text>
             </TouchableOpacity>
@@ -195,7 +192,7 @@ export default function App() {
 
       {/* BOTTOM NAV */}
       {isMainView && (
-        <View className="absolute bottom-0 left-0 w-full bg-culos border-t border-white/5 flex-row pb-6">
+        <View className="absolute bottom-0 left-0 w-full bg-culos flex-row pb-6">
 
           {/* Jadwal */}
           <TouchableOpacity
