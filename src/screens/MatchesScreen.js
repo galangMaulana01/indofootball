@@ -1,179 +1,184 @@
-import React, { useState, useEffect } from 'react';                                                                                               
-import { View, Text, Image, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';                                       
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { activeSeasonIdGlobal } from './MatchesScreen'; // tetap pakai jika ada
 
 const API_BASE_URL = "https://sportmonks-tawny.vercel.app";
-const TARGET_LEAGUE_IDS = [501, 271];
-const TARGET_STANDINGS = [25598];
-export let activeSeasonIdGlobal = null;
 
-export default function MatchesScreen({ onMatchClick }) {                                                                                           
+export default function MatchesScreen() {
   const [loading, setLoading] = useState(true);
-  const [fixtures, setFixtures] = useState([]);                                                                                                     
-  const [leagueName, setLeagueName] = useState("");
-  const [leagueImg, setLeagueImg] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [liveMatches, setLiveMatches] = useState([]);
+  const [filter, setFilter] = useState('all'); // 'all', 'today', 'live'
 
-  const [bannerData, setBannerData] = useState(null);
-
-  useEffect(() => {                                                                                                                                
-    fetchAndRenderMatches();
-    fetchBanner(); // Panggil fungsi fetch banner saat komponen pertama kali dimuat
+  useEffect(() => {
+    fetchAllData();
   }, []);
 
-  // Fungsi untuk mengambil data banner
-  const fetchBanner = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/benner`);
-      const json = await res.json();
-      if (json && json.image_benner) {
-        setBannerData(json);
-      }
-    } catch (e) {
-      console.error("Gagal mengambil data banner:", e);
-    }
-  };
-
-  // Fungsi untuk menangani klik pada banner
-  const handleBannerPress = async () => {
-    if (bannerData?.link) {
-      const supported = await Linking.canOpenURL(bannerData.link);
-      if (supported) {
-        await Linking.openURL(bannerData.link);
-      } else {
-        console.log("Tidak bisa membuka URL: " + bannerData.link);
-      }
-    }
-  };
-
-  const fetchAndRenderMatches = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
-    let loadedFixtures = [];                                                                                                                          
     try {
-      for (const leagueId of TARGET_LEAGUE_IDS) {
-        const leagueRes = await fetch(`${API_BASE_URL}/leagues/${leagueId}`);
-        const leagueJson = await leagueRes.json();
-        const league = leagueJson?.data;
-        if (!league) continue;
-                                                                                                                                                          
-        setLeagueName(league.name);
-        setLeagueImg(league.image_path);
-                                                                                                                                                          
-        let seasonId = league.currentseason?.id;                                                                                                          
-        if (!seasonId) continue;
-        activeSeasonIdGlobal = seasonId;
-                                                                                                                                                          
-        const standingsRes = await fetch(`${API_BASE_URL}/standings/seasons/${TARGET_STANDINGS}`);                                                                
-        const standingsJson = await standingsRes.json();                                                                                                  
-        const standings = standingsJson?.data || [];
-        if (standings.length === 0) continue;
+      // Fetch Live Matches
+      const liveRes = await fetch(`${API_BASE_URL}/livescores/inplay?include=participants,league,venue`);
+      const liveJson = await liveRes.json();
+      setLiveMatches(liveJson?.data || []);
 
-        const roundId = standings[0].round_id;
-        const roundRes = await fetch(`${API_BASE_URL}/rounds/${roundId}`);
-        const roundJson = await roundRes.json();
-        const fixtureSummaries = roundJson?.data?.fixtures || [];
-
-        for (const summary of fixtureSummaries) {
-          const fixtureRes = await fetch(`${API_BASE_URL}/fixtures/${summary.id}?include=participants,scores`);
-          const fixtureJson = await fixtureRes.json();
-          const fixtureData = fixtureJson.data;                                                                                                             
-          if (!fixtureData) continue;                                                                                                                                                                                                                                                                         
-          const participants = fixtureData.participants || [];
-          const homeTeam = participants.find(p => p.meta?.location === 'home') || {};
-          const awayTeam = participants.find(p => p.meta?.location === 'away') || {};
-
-          const homeScore = fixtureData.scores?.find(s => s.description === "CURRENT" && s.score?.participant === "home")?.score.goals ?? "-";
-          const awayScore = fixtureData.scores?.find(s => s.description === "CURRENT" && s.score?.participant === "away")?.score.goals ?? "-";              
-          const statusRaw = fixtureData.state?.short_name || "NS";
-          const statusLabel = statusRaw === "FT" ? "FT" : (statusRaw === "NS" ? "NS" : statusRaw);
-                                                                                                                                                            
-          loadedFixtures.push({ id: fixtureData.id, homeTeam, awayTeam, homeScore, awayScore, statusLabel });
-        }                                                                                                                                               
-      }                                                                                                                                                 
-      setFixtures(loadedFixtures);                                                                                                                    
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);                                                                                                                              
-  };                                                                                                                                              
-  
-  return (                                                                                                                                            
-    <ScrollView className="flex-1 w-full mb-20 bg-equd" showsVerticalScrollIndicator={false}>                                                                                                                                                                                                             
+      // Fetch Today's Matches (bisa pakai fixtures dengan filter date)
+      const today = new Date().toISOString().split('T')[0];
+      const todayRes = await fetch(`\( {API_BASE_URL}/fixtures/date/ \){today}?include=participants,league`);
+      const todayJson = await todayRes.json();
       
-      {/* Banner image dinamis dari API */}
-      {bannerData && (
-        <View className="px-3 mt-4">
-          <TouchableOpacity 
-            onPress={handleBannerPress}
-            className="w-full h-56 overflow-hidden relative rounded-xl"
-            activeOpacity={0.9}
+      setMatches(todayJson?.data || []);
+    } catch (err) {
+      console.error("Error fetching matches:", err);
+    }
+    setLoading(false);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAllData();
+    setRefreshing(false);
+  };
+
+  const filteredMatches = filter === 'live' 
+    ? liveMatches 
+    : filter === 'today' 
+      ? matches 
+      : [...liveMatches, ...matches];
+
+  const getStatusColor = (status) => {
+    if (status?.toLowerCase() === 'live' || status?.toLowerCase() === 'inplay') return 'text-red-500';
+    if (status?.toLowerCase() === 'ft') return 'text-gray-400';
+    return 'text-emerald-400';
+  };
+
+  return (
+    <View className="flex-1 bg-equd w-full">
+      {/* Header */}
+      <View className="px-4 pt-4 pb-3 border-b border-white/10">
+        <Text className="text-2xl font-black text-white tracking-tighter">IndoFootball</Text>
+        <Text className="text-xs text-gray-400">Live & Jadwal Hari Ini</Text>
+      </View>
+
+      {/* Filter Tabs */}
+      <View className="flex-row px-3 pt-3 pb-2 border-b border-white/10 bg-equd">
+        {['all', 'today', 'live'].map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            onPress={() => setFilter(tab)}
+            className={`flex-1 py-2 mx-1 rounded-xl items-center ${filter === tab ? 'bg-culos' : 'bg-white/5'}`}
           >
-            <Image
-              source={{ uri: bannerData.image_benner }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
+            <Text className={`font-semibold text-sm ${filter === tab ? 'text-white' : 'text-gray-400'}`}>
+              {tab === 'all' ? 'Semua' : tab === 'today' ? 'Hari Ini' : 'LIVE'}
+            </Text>
           </TouchableOpacity>
-        </View>
-      )}
+        ))}
+      </View>
 
-      {loading ? (
-        <View className="items-center py-16">
-          <ActivityIndicator size="large" color="#FC0B12" />
-        </View>
-      ) : fixtures.length === 0 ? (
-        <View className="items-center py-16">
-          <Text className="text-5xl mb-3 opacity-30">⚽</Text>
-          <Text className="text-gray-500 font-medium text-sm">Tidak ada jadwal tersedia.</Text>
-        </View>
-      ) : (
-        <View className="px-3 mb-6 mt-4">
-          {/* League header */}
-          <Text className="font-black text-start text-base text-white tracking-wider mb-3">{leagueName}</Text>
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FC0B12" />
+        }
+      >
+        {loading && !refreshing ? (
+          <View className="items-center py-20">
+            <ActivityIndicator size="large" color="#FC0B12" />
+          </View>
+        ) : (
+          <>
+            {/* LIVE SECTION */}
+            {liveMatches.length > 0 && (filter === 'all' || filter === 'live') && (
+              <View className="mt-4 px-3">
+                <Text className="text-red-500 font-bold text-sm tracking-widest px-1 mb-3">🔴 SEDANG BERLANGSUNG</Text>
+                {liveMatches.map((match, idx) => (
+                  <MatchCard key={idx} match={match} isLive={true} />
+                ))}
+              </View>
+            )}
 
-          {/* Match list */}
-          <View className="overflow-hidden">
-            {fixtures.map((match, i) => {
-              const isLast = i === fixtures.length - 1;
-              const isFT = match.statusLabel === 'FT';                                                                                                          
-              const isLive = !isFT && match.statusLabel !== 'NS';
+            {/* TODAY'S MATCHES */}
+            {(filter === 'all' || filter === 'today') && (
+              <View className="mt-4 px-3">
+                <Text className="text-white font-bold text-sm tracking-widest px-1 mb-3">📅 PERTANDINGAN HARI INI</Text>
+                {matches.length === 0 ? (
+                  <Text className="text-gray-400 text-center py-10">Tidak ada pertandingan hari ini</Text>
+                ) : (
+                  matches.map((match, idx) => (
+                    <MatchCard key={idx} match={match} />
+                  ))
+                )}
+              </View>
+            )}
 
-              return (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => onMatchClick(match.id)}
-                  className={`flex-row items-center px-4 py-3 mb-2 bg-culos rounded-xl`}
-                >
-                  {/* Status kiri */}
-                  <Text className={`w-8 text-xs font-semibold text-center mr-3 ${isLive ? 'text-green-400' : 'text-gray-200'}`}>
-                    {match.statusLabel}
-                  </Text>
-
-                  {/* Tim vertikal */}
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2 mb-2">
-                      <Image source={{ uri: match.homeTeam.image_path || 'https://placehold.co/28' }} className="w-6 h-6" resizeMode="contain" />
-                      <Text className="text-sm font-semibold text-gray-200 flex-1" numberOfLines={1}>{match.homeTeam.name || 'TBA'}</Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      <Image source={{ uri: match.awayTeam.image_path || 'https://placehold.co/28' }} className="w-6 h-6" resizeMode="contain" />
-                      <Text className="text-sm font-semibold text-gray-200 flex-1" numberOfLines={1}>{match.awayTeam.name || 'TBA'}</Text>
-                    </View>
-                  </View>
-
-                  {/* Skor kanan */}
-                  <View className="items-center ml-3">                                                                                                                
-                    <View className={`w-7 h-7 rounded items-center justify-center mb-1 ${Number(match.homeScore) > Number(match.awayScore) ? 'bg-red-600' : 'bg-white/10'}`}>
-                      <Text className={`text-sm font-black text-white`}>{match.homeScore}</Text>
-                    </View>
-                    <View className={`w-7 h-7 rounded items-center justify-center ${Number(match.awayScore) > Number(match.homeScore) ? 'bg-red-600' : 'bg-white/10'}`}>
-                      <Text className={`text-sm font-black text-white`}>{match.awayScore}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}                                                                                                                                             
-          </View>                                                                                                                                         
-        </View>
-      )}
-    </ScrollView>
+            {filteredMatches.length === 0 && !loading && (
+              <View className="items-center py-20">
+                <Text className="text-6xl mb-4 opacity-30">⚽</Text>
+                <Text className="text-gray-400">Tidak ada data pertandingan</Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
+
+// Reusable Match Card Component
+const MatchCard = ({ match, isLive = false }) => {
+  const home = match.participants?.find(p => p.meta?.location === 'home') || match.participants?.[0];
+  const away = match.participants?.find(p => p.meta?.location === 'away') || match.participants?.[1];
+
+  return (
+    <View className="bg-culos rounded-2xl p-4 mb-3 border border-white/10">
+      <View className="flex-row justify-between items-center mb-3">
+        <Text className="text-xs text-gray-400">{match.league?.name || 'Liga'}</Text>
+        <Text className={`text-xs font-bold ${isLive ? 'text-red-500' : getStatusColor(match.status)}`}>
+          {isLive ? 'LIVE' : match.status || match.result_info || 'VS'}
+        </Text>
+      </View>
+
+      <View className="flex-row items-center justify-between">
+        {/* Home Team */}
+        <View className="flex-row items-center flex-1">
+          <Image 
+            source={{ uri: home?.image_path || 'https://placehold.co/40' }} 
+            className="w-8 h-8 rounded-full" 
+          />
+          <Text className="ml-3 font-semibold text-white flex-1" numberOfLines={1}>
+            {home?.name || 'Home'}
+          </Text>
+        </View>
+
+        {/* Score */}
+        <View className="items-center px-4">
+          <Text className="text-2xl font-black text-white">
+            {match.scores?.ft?.home ?? '-'} : {match.scores?.ft?.away ?? '-'}
+          </Text>
+          {isLive && match.scores?.current && (
+            <Text className="text-xs text-red-500 font-bold">
+              {match.scores.current.home} - {match.scores.current.away}
+            </Text>
+          )}
+        </View>
+
+        {/* Away Team */}
+        <View className="flex-row items-center flex-1 justify-end">
+          <Text className="mr-3 font-semibold text-white text-right flex-1" numberOfLines={1}>
+            {away?.name || 'Away'}
+          </Text>
+          <Image 
+            source={{ uri: away?.image_path || 'https://placehold.co/40' }} 
+            className="w-8 h-8 rounded-full" 
+          />
+        </View>
+      </View>
+
+      <Text className="text-center text-[10px] text-gray-500 mt-3">
+        {match.venue?.name || ''} • {match.starting_at ? new Date(match.starting_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''}
+      </Text>
+    </View>
+  );
+};
