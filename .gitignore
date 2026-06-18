@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Expo / Build files
+.expo/
+dist/
+web-build/
+
+# Native build folders (jika nanti melakukan prebuild)
+ios/
+android/
+
+# Environment Variables (Sangat penting jika pakai file .env)
+.env
+.env*.local
+
+# Firebase / Google Credentials (Sangat disarankan di-ignore jika repo kamu publik)
+google-services.json
+GoogleService-Info.plist
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# MacOS system files
+.DS_Store
