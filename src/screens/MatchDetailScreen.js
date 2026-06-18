@@ -115,10 +115,8 @@ const renderOverview = () => {
       </View>
     );
 
-    // 1. Urutkan kejadian berdasarkan menit maju
     const sorted = [...events].sort((a, b) => a.minute - b.minute);
 
-    // 2. LOGIKA GROUPING: Satukan kejadian jika menit dan timnya SAMA
     const groupedGroups = [];
     sorted.forEach(e => {
       if (e.type_id === 10) return; // Lewati jika type_id 10
@@ -428,7 +426,7 @@ const renderOverview = () => {
             <TouchableOpacity
               key={tab}
               onPress={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-full mr-2 ${activeTab === tab ? 'bg-culos' : 'bg-white/10'}`}
+              className={`px-5 py-2 rounded-full mr-2 ${activeTab === tab ? 'bg-red-600' : 'bg-white/10'}`}
             >
               <Text className={`text-xs font-bold ${activeTab === tab ? 'text-white' : 'text-gray-300'}`}>
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}

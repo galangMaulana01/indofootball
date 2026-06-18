@@ -4,7 +4,7 @@ import { activeSeasonIdGlobal } from './MatchesScreen';
 
 const API_BASE_URL = "https://sportmonks-tawny.vercel.app";
 const TARGET_LEAGUE_IDS = [501];
-
+const TARGET_STANDINGS = [25598];
 export default function StandingsScreen({ onTeamClick }) {
   const [loading, setLoading] = useState(true);
   const [standingsData, setStandingsData] = useState([]);
@@ -30,7 +30,7 @@ export default function StandingsScreen({ onTeamClick }) {
         if (!seasonId) throw new Error("No season ID");
       }
 
-      const standingsRes = await fetch(`${API_BASE_URL}/standings/seasons/${seasonId}`);
+      const standingsRes = await fetch(`${API_BASE_URL}/standings/seasons/${TARGET_STANDINGS}`);
       const standingsJson = await standingsRes.json();
       let allStandings = standingsJson?.data || [];
       if (allStandings.length === 0) throw new Error("Standings kosong");
@@ -74,12 +74,7 @@ export default function StandingsScreen({ onTeamClick }) {
     <View className="flex-1 bg-equd w-full pb-20">
 
       {/* Header */}
-      <View className="pl-3 flex-row items-center gap-3">
-        {leagueLogo && (
-          <Image source={{ uri: leagueLogo }} className="w-8 h-8" resizeMode="contain" />
-        )}
-        <Text className="text-base font-black text-white tracking-tight flex-1">{leagueName}</Text>
-      </View>
+      <Text className="text-md font-black text-white tracking-tight px-3">{leagueName}</Text>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (

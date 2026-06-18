@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';                                       
 
 const API_BASE_URL = "https://sportmonks-tawny.vercel.app";
-const TARGET_LEAGUE_IDS = [501];
+const TARGET_LEAGUE_IDS = [501, 271];
+const TARGET_STANDINGS = [25598];
 export let activeSeasonIdGlobal = null;
 
 export default function MatchesScreen({ onMatchClick }) {                                                                                           
@@ -10,11 +11,10 @@ export default function MatchesScreen({ onMatchClick }) {
   const [fixtures, setFixtures] = useState([]);                                                                                                     
   const [leagueName, setLeagueName] = useState("");
   const [leagueImg, setLeagueImg] = useState("");
-  
-  // State baru untuk menyimpan data banner dari API
+
   const [bannerData, setBannerData] = useState(null);
 
-  useEffect(() => {                                                                                                                                   
+  useEffect(() => {                                                                                                                                
     fetchAndRenderMatches();
     fetchBanner(); // Panggil fungsi fetch banner saat komponen pertama kali dimuat
   }, []);
@@ -61,7 +61,7 @@ export default function MatchesScreen({ onMatchClick }) {
         if (!seasonId) continue;
         activeSeasonIdGlobal = seasonId;
                                                                                                                                                           
-        const standingsRes = await fetch(`${API_BASE_URL}/standings/seasons/${seasonId}`);                                                                
+        const standingsRes = await fetch(`${API_BASE_URL}/standings/seasons/${TARGET_STANDINGS}`);                                                                
         const standingsJson = await standingsRes.json();                                                                                                  
         const standings = standingsJson?.data || [];
         if (standings.length === 0) continue;
@@ -127,10 +127,7 @@ export default function MatchesScreen({ onMatchClick }) {
       ) : (
         <View className="px-3 mb-6 mt-4">
           {/* League header */}
-          <View className="flex-row items-center gap-2 mb-3 px-1">
-            <Image source={{ uri: leagueImg }} className="w-8 h-8" resizeMode="contain" />
-            <Text className="font-black text-sm text-white tracking-wider">{leagueName}</Text>
-          </View>
+          <Text className="font-black text-start text-base text-white tracking-wider mb-3">{leagueName}</Text>
 
           {/* Match list */}
           <View className="overflow-hidden">
@@ -146,7 +143,7 @@ export default function MatchesScreen({ onMatchClick }) {
                   className={`flex-row items-center px-4 py-3 mb-2 bg-culos rounded-xl`}
                 >
                   {/* Status kiri */}
-                  <Text className={`w-8 text-sm font-semibold text-center mr-3 ${isLive ? 'text-green-400' : 'text-gray-200'}`}>
+                  <Text className={`w-8 text-xs font-semibold text-center mr-3 ${isLive ? 'text-green-400' : 'text-gray-200'}`}>
                     {match.statusLabel}
                   </Text>
 
@@ -164,11 +161,11 @@ export default function MatchesScreen({ onMatchClick }) {
 
                   {/* Skor kanan */}
                   <View className="items-center ml-3">                                                                                                                
-                    <View className={`w-7 h-7 rounded items-center justify-center mb-1 ${Number(match.homeScore) > Number(match.awayScore) ? 'bg-yellow-400' : 'bg-white/10'}`}>
-                      <Text className={`text-sm font-black ${Number(match.homeScore) > Number(match.awayScore) ? 'text-black' : 'text-white'}`}>{match.homeScore}</Text>
+                    <View className={`w-7 h-7 rounded items-center justify-center mb-1 ${Number(match.homeScore) > Number(match.awayScore) ? 'bg-red-600' : 'bg-white/10'}`}>
+                      <Text className={`text-sm font-black text-white`}>{match.homeScore}</Text>
                     </View>
-                    <View className={`w-7 h-7 rounded items-center justify-center ${Number(match.awayScore) > Number(match.homeScore) ? 'bg-yellow-400' : 'bg-white/10'}`}>
-                      <Text className={`text-sm font-black ${Number(match.awayScore) > Number(match.homeScore) ? 'text-black' : 'text-white'}`}>{match.awayScore}</Text>
+                    <View className={`w-7 h-7 rounded items-center justify-center ${Number(match.awayScore) > Number(match.homeScore) ? 'bg-red-600' : 'bg-white/10'}`}>
+                      <Text className={`text-sm font-black text-white`}>{match.awayScore}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
