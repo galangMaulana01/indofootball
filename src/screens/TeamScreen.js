@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,7 +12,6 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { safeFetch } from '../utils/api';
 
-// --- Icon SVG ---
 const MapPinIcon = ({ size = 12, color = "#9ca3af" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -35,7 +33,6 @@ const SearchIcon = ({ size = 16, color = "#9ca3af" }) => (
 );
 
 export default function TeamScreen({ teamId: initialTeamId, goBack }) {                                                                           
-  // HELPER: Validasi ID ketat agar string "undefined", undefined, atau null tidak lolos
   const getValidId = (id) => {
     if (!id || id === 'undefined' || id === undefined || id === null) return null;
     return id;
@@ -44,30 +41,24 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
   const [selectedTeamId, setSelectedTeamId] = useState(getValidId(initialTeamId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // State Detail Tim & Skuad
   const [teamInfo, setTeamInfo] = useState({});
   const [squadPositions, setSquadPositions] = useState([]);
-
-  // State Mode Pencarian Tim 
   const [searchTeams, setSearchTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Sinkronisasi state lokal jika props teamId berubah
   useEffect(() => {
     setSelectedTeamId(getValidId(initialTeamId));
   }, [initialTeamId]);
 
-  // Efek Utama: Tentukan apakah harus muat list tim liga ATAU detail satu tim
-useEffect(() => {
-  if (selectedTeamId) {
-    loadTeamAndSquadData(selectedTeamId);
-  } else {
-    setLoading(false);
-  }
-}, [selectedTeamId]);
-  // Efek Debounce Pencarian API Backend (Jalan kalau minimal ketik 3 huruf)
+  useEffect(() => {
+    if (selectedTeamId) {
+      loadTeamAndSquadData(selectedTeamId);
+    } else {
+      setLoading(false);
+    }
+  }, [selectedTeamId]);
+
   useEffect(() => {
     const query = searchQuery.trim();
     if (query.length >= 3 && !selectedTeamId) {
@@ -88,17 +79,15 @@ useEffect(() => {
     }
   }, [searchQuery, selectedTeamId]);
 
-
-  // 2. Fungsi muat data spesifik SATU TIM & skuad pemainnya
   const loadTeamAndSquadData = async (id) => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-const [teamJson, squadJson] = await Promise.all([
-  safeFetch(`/teams/${id}`),
-  safeFetch(`/squads/teams/${id}`),
-]);
+      const [teamJson, squadJson] = await Promise.all([
+        safeFetch(`/teams/${id}`),
+        safeFetch(`/squads/teams/${id}`),
+      ]);
       const tData = teamJson?.data || teamJson || {};                                                                                                         
       const playersData = squadJson?.data || squadJson || [];
 
@@ -114,7 +103,7 @@ const [teamJson, squadJson] = await Promise.all([
       } else {
         const positionMap = new Map();
         playersData.forEach((item) => {
-          const player = item.player || item; // Handle nested player object just in case
+          const player = item.player || item;
           if (!player || !player.name) return;
           const posName = player.position?.name || 'Lainnya';
           if (!positionMap.has(posName)) positionMap.set(posName, []);
@@ -146,34 +135,23 @@ const [teamJson, squadJson] = await Promise.all([
       goBack();
     } else if (selectedTeamId) {
       setSelectedTeamId(null);
-    } else {
-      if (goBack) goBack();
+    } else if (goBack) {
+      goBack();
     }
   };
 
-  // Logic Penentu Grid Tampilan
-const displayedTeams = searchTeams;
-  // --- RENDER ERROR STATE ---
   if (!loading && error) {
     return (
       <View className="flex-1 bg-equd items-center justify-center px-6">
         <TouchableOpacity onPress={handleBack} className="absolute top-12 left-6 p-3 bg-white/5 rounded-full"><ChevronLeftIcon /></TouchableOpacity>
         <Text className="text-gray-400 text-center mb-6">{error}</Text>
-<TouchableOpacity
-  onPress={() => {
-    if (selectedTeamId) {
-      loadTeamAndSquadData(selectedTeamId);
-    }
-  }}
-  className="bg-red-600 px-8 py-3 rounded-full"
->
+        <TouchableOpacity onPress={() => selectedTeamId && loadTeamAndSquadData(selectedTeamId)} className="bg-red-600 px-8 py-3 rounded-full">
           <Text className="text-white font-bold text-xs uppercase tracking-wider">Coba Lagi</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // --- MODE A: TAMPILKAN LIST & SEARCH BAR ---
   if (!selectedTeamId) {
     return (
       <View className="flex-1 bg-equd w-full pt-12">
@@ -196,7 +174,7 @@ const displayedTeams = searchTeams;
           <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="#FC0B12" /></View>
         ) : (
           <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-            {displayedTeams.length === 0 ? (
+            {searchTeams.length === 0 ? (
               <View className="items-center py-16">
                 <Text className="text-gray-500 font-medium text-xs">
                   {isSearching ? 'Mencari klub...' : 'Tim tidak ditemukan.'}
@@ -204,7 +182,7 @@ const displayedTeams = searchTeams;
               </View>
             ) : (
               <View className="flex-row flex-wrap justify-between pb-10 mt-2">
-                {displayedTeams.map((team) => (
+                {searchTeams.map((team) => (
                   <TouchableOpacity
                     key={team.id}
                     onPress={() => setSelectedTeamId(team.id)}
@@ -227,7 +205,6 @@ const displayedTeams = searchTeams;
     );
   }
 
-  // --- MODE B: TAMPILKAN DETAIL PROFIL SKUAD TIM ---
   return (
     <View className="flex-1 bg-equd w-full">
       <ImageBackground source={teamInfo.venueImg ? { uri: teamInfo.venueImg } : undefined} className="relative z-10 bg-equd pt-12 pb-8 border-b border-white/5">

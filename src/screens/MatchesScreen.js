@@ -5,7 +5,6 @@ import { safeFetch } from '../utils/api';
   
 export let activeSeasonIdGlobal = null;  
   
-// --- Icon SVG ---  
 const LiveIcon = () => (  
   <Svg width="12" height="12" viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="12" r="8" fill="#ef4444" />
@@ -13,7 +12,7 @@ const LiveIcon = () => (
   </Svg>  
 );  
   
-export default function MatchesScreen({ onMatchClick }) {  
+export default function MatchesScreen({ onMatchClick, onLeaguePress }) {  
   const todayStr = new Date().toISOString().split('T')[0];  
   
   const [loading, setLoading] = useState(true);  
@@ -43,35 +42,16 @@ export default function MatchesScreen({ onMatchClick }) {
     return tabs;  
   };  
   
-  // LOGIKA DIAMBIL DARI CODE 1 (Melakukan fetch detail league beserta include=seasons)
   const handleLeaguePress = async (league) => {  
     try {  
-      console.log('LEAGUE CLICK:', league);  
-  
       const res = await safeFetch(`/leagues/${league.id}?include=seasons`);  
       const full = res?.data;  
-  
-      console.log('FULL LEAGUE:', full);  
-  
-      const seasonId =  
-        full?.currentseason?.id ||  
-        full?.seasons?.[0]?.id ||  
-        null;  
-  
-      if (!seasonId) {  
-        console.warn('season tidak ditemukan:', full?.name);  
-        return;  
-      }  
-  
-      activeSeasonIdGlobal = seasonId;  
-  
-      onMatchClick?.({  
-        type: 'league',  
-        leagueId: league.id,  
-        seasonId,  
-      });  
+      const seasonId = full?.currentseason?.id || full?.seasons?.[0]?.id;  
+      if (seasonId) activeSeasonIdGlobal = seasonId;  
+      onLeaguePress?.(league);  
     } catch (e) {  
-      console.error('ERROR league detail:', e);  
+      console.error('League detail error:', e);  
+      onLeaguePress?.(league);  
     }  
   };  
   
@@ -92,10 +72,7 @@ export default function MatchesScreen({ onMatchClick }) {
       const leagues = leaguesJson?.data || [];  
   
       const map = {};  
-      leagues.forEach(l => {  
-        map[l.id] = l;  
-      });  
-  
+      leagues.forEach(l => { map[l.id] = l; });  
       setLeaguesMap(map);                                                                                                                             
       
       if (targetTab !== 'LIVE') {                                                                                                                         
@@ -105,7 +82,6 @@ export default function MatchesScreen({ onMatchClick }) {
       } else {  
         setMatches([]);  
       }  
-  
     } catch (err) {  
       console.error(err);  
       setError(err.message);  
@@ -123,7 +99,6 @@ export default function MatchesScreen({ onMatchClick }) {
   return (  
     <View className="flex-1 bg-equd w-full">  
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FC0B12" />}>  
-        {/* Banner Sleek */}  
         <View className="w-full h-56 relative bg-culos">  
           {benner?.image_benner ? (  
             <ImageBackground source={{ uri: benner.image_benner }} className="w-full h-full justify-end overflow-hidden" imageStyle={{ opacity: 0.6 }}>  
@@ -137,7 +112,6 @@ export default function MatchesScreen({ onMatchClick }) {
           )}  
         </View>  
   
-        {/* Date Filter */}  
         <View className="w-full bg-equd py-3">  
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4">  
             {generateDateTabs().map((tab) => {  
@@ -172,7 +146,7 @@ export default function MatchesScreen({ onMatchClick }) {
                       match={match} 
                       isLive 
                       leaguesMap={leaguesMap} 
-                      onPress={() => onMatchClick && onMatchClick(match.id)} 
+                      onPress={() => onMatchClick?.(match.id)} 
                       onLeaguePress={handleLeaguePress} 
                     />
                   ))}
@@ -221,19 +195,12 @@ const MatchCard = ({ match, isLive = false, onPress, onLeaguePress, leaguesMap =
   
   return (  
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} className="bg-culos rounded-xl p-2 mb-3">  
-      {/* FIXED SYNTAX: Ditambahkan event onPress untuk navigasi Liga */}
       <TouchableOpacity  
         className="flex-row items-center mb-2"  
         onPress={() => onLeaguePress?.(match.league)}  
       >  
-        <Image  
-          source={{ uri: match.league?.image_path }}  
-          className="w-6 h-6 rounded mr-2"  
-          resizeMode="contain"  
-        />  
-        <Text className="text-sm text-gray-200 font-bold tracking-wider">
-          {match.league?.name}  
-        </Text>
+        <Image source={{ uri: match.league?.image_path }} className="w-6 h-6 rounded mr-2" resizeMode="contain" />  
+        <Text className="text-sm text-gray-200 font-bold tracking-wider">{match.league?.name}</Text>
       </TouchableOpacity>  
 
       <View className="flex-row justify-between items-center px-1">  
