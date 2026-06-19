@@ -7,7 +7,6 @@ import AuthModal from './src/components/AuthModal';
 import MatchesScreen from './src/screens/MatchesScreen';
 import MatchDetailScreen from './src/screens/MatchDetailScreen';
 import TeamScreen from './src/screens/TeamScreen';
-import TopScorersScreen from './src/screens/TopScorersScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import { Svg, Path, Rect } from 'react-native-svg';
 
@@ -129,7 +128,7 @@ export default function App() {
 
   const isMainView = currentView === 'matches' || currentView === 'standings' || currentView === 'profile' || currentView === 'topscorers';
 
-  // FIX: Tambahkan return ( dan bungkus dengan View flex-1 agar layout tidak berantakan
+
   return (
     <View className="flex-1 bg-black">
       <StatusBar barStyle="light-content" />
@@ -138,26 +137,38 @@ export default function App() {
       {currentView === 'matches' && (
         <MatchesScreen onMatchClick={(id) => navigateTo('detail', id)} />
       )}
+      
+      {/* FIX 1: Saat di tab Standings/Cari Klub, pastikan teamId di-set null 
+          supaya TeamScreen otomatis ngebuka halaman SEARCH/LIST, bukan nyari detail */}
       {currentView === 'standings' && (
-        <TopScorersScreen onTeamClick={(id) => navigateTo('team', id)} />
+        <TeamScreen 
+          teamId={null} 
+          goBack={() => setCurrentView('matches')} 
+        />
       )}
+      
       {currentView === 'detail' && (
         <MatchDetailScreen
           matchId={selectedMatchId}
           goBack={() => setCurrentView(previousView === 'detail' ? 'matches' : previousView)}
         />
       )}
+      
+      {/* FIX 2: Saat melihat DETAIL TIM tertentu (hasil klik dari matches atau match detail) */}
       {currentView === 'team' && (
         <TeamScreen
           teamId={selectedTeamId}
-          goBack={() => setCurrentView(previousView === 'team' ? 'matches' : previousView)}
+          goBack={() => {
+            // Jika sebelumnya dari detail match, balikin ke detail match, selain itu balik ke matches
+            setCurrentView(previousView === 'detail' ? 'detail' : 'matches');
+          }}
         />
       )}
+      
       {currentView === 'profile' && (
         <ProfileScreen user={user} onLogout={handleLogout} />
       )}
 
-      {/* BOTTOM NAV */}
       {isMainView && (
         <View className="absolute bottom-0 left-0 w-full bg-culos flex-row pb-6">
           {/* Jadwal */}

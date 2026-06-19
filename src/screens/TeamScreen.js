@@ -1,52 +1,142 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground } from 'react-native';
-import { Svg, Path } from 'react-native-svg';
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  ImageBackground,
+  TextInput
+} from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { safeFetch } from '../utils/api';
-// FIX: Import activeSeasonIdGlobal — sekarang sudah di-export dari MatchesScreen
 import { activeSeasonIdGlobal } from './MatchesScreen';
 
 const TARGET_LEAGUE_ID = 501;
 
-export default function TeamScreen({ teamId, goBack }) {
+// --- Icon SVG ---
+const MapPinIcon = ({ size = 12, color = "#9ca3af" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <Circle cx="12" cy="10" r="3" />
+  </Svg>
+);
+
+const ChevronLeftIcon = () => (
+  <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <Path d="M15 19l-7-7 7-7" />
+  </Svg>
+);                                                                                                                                                
+
+const SearchIcon = ({ size = 16, color = "#9ca3af" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="11" cy="11" r="8" />
+    <Path d="M21 21l-4.35-4.35" />
+  </Svg>
+);
+
+export default function TeamScreen({ teamId: initialTeamId, goBack }) {                                                                           
+  // Validasi id biar string "undefined" ga lolos nembak API
+  const getValidId = (id) => {
+    if (!id || id === 'undefined' || id === undefined || id === null) return null;
+    return id;
+  };
+
+  const [selectedTeamId, setSelectedTeamId] = useState(getValidId(initialTeamId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // State Detail Tim & Skuad
   const [teamInfo, setTeamInfo] = useState({});
   const [squadPositions, setSquadPositions] = useState([]);
 
-  useEffect(() => {
-    loadTeamAndSquadData();
-  }, [teamId]);
+  // State Mode Pencarian Tim (Jika diakses dari tab standings / belum pilih tim)
+  const [seasonTeams, setSeasonTeams] = useState([]);
+  const [searchTeams, setSearchTeams] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  const loadTeamAndSquadData = async () => {
+  // Sinkronisasi state lokal jika props teamId dari App.js berubah
+  useEffect(() => {
+    setSelectedTeamId(getValidId(initialTeamId));
+  }, [initialTeamId]);
+
+  // Efek utama menentukan apakah harus load list tim liga atau detail skuad satu tim
+  useEffect(() => {
+    if (selectedTeamId) {
+      loadTeamAndSquadData(selectedTeamId);
+    } else {
+      loadDefaultTeams();
+    }
+  }, [selectedTeamId]);
+
+  // Efek Debounce Pencarian Global ke BE lo (min 3 huruf)
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length >= 3 && !selectedTeamId) {
+      setIsSearching(true);
+      const timeoutId = setTimeout(async () => {
+        try {
+          const json = await safeFetch(`/teams/search/${query}`);
+          setSearchTeams(json?.data || []);
+        } catch (e) {
+          console.error('Search BE error:', e);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 500); // Tahan 500ms biar ga spam request pas ngetik
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSearchTeams([]);
+    }
+  }, [searchQuery, selectedTeamId]);
+
+  // 1. Ambil list tim default kompetisi aktif liga lo
+  const loadDefaultTeams = async () => {
     setLoading(true);
     setError(null);
     try {
-      // FIX: Resolve season ID — coba dari global, fallback ke league endpoint
       let seasonId = activeSeasonIdGlobal;
-
-      if (!seasonId) {
-        const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);
-        seasonId =
-          leagueJson?.data?.currentSeason?.id ||
-          leagueJson?.data?.current_season_id ||
-          null;
+      if (!seasonId) {                                                                                                                            
+        const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);                                                                       
+        seasonId = leagueJson?.data?.currentSeason?.id || leagueJson?.data?.current_season_id || null;                                            
       }
+      if (!seasonId) throw new Error('Tidak bisa mendapatkan season ID aktif');                                                                                                                                                                                                                     
 
-      if (!seasonId) {
-        throw new Error('Tidak bisa mendapatkan season ID aktif');
+      const teamsJson = await safeFetch(`/teams/seasons/${seasonId}`);
+      setSeasonTeams(teamsJson?.data || []);
+    } catch (e) {
+      console.error('LoadDefaultTeams error:', e);
+      setError(e.message || 'Gagal memuat daftar semua tim');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Ambil data spesifik SATU TIM & Skuad pemainnya berdasarkan id
+  const loadTeamAndSquadData = async (id) => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      let seasonId = activeSeasonIdGlobal;
+      if (!seasonId) {                                                                                                                            
+        const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);                                                                       
+        seasonId = leagueJson?.data?.currentSeason?.id || leagueJson?.data?.current_season_id || null;                                            
       }
+      if (!seasonId) throw new Error('Tidak bisa mendapatkan season ID aktif');                                                                                                                                                                                                                     
 
-      // Jalankan kedua fetch secara paralel
-      const [teamJson, squadJson] = await Promise.all([
-        safeFetch(`/teams/${teamId}`),
-        safeFetch(`/squads/seasons/${seasonId}/teams/${teamId}`),
-      ]);
+      const [teamJson, squadJson] = await Promise.all([                                                                                           
+        safeFetch(`/teams/${id}`),
+        safeFetch(`/squads/seasons/${seasonId}/teams/${id}`),                                                                                     
+      ]);                                                                                                                                                                                                                                                                                           
 
-      const tData = teamJson?.data || {};
+      const tData = teamJson?.data || {};                                                                                                         
       const playersData = squadJson?.data || [];
 
       setTeamInfo({
-        name: tData.name || 'Tim',
+        name: tData.name || 'Nama Tim',
         logo: tData.image_path || 'https://placehold.co/80',
         venue: tData.venue?.name || null,
         venueImg: tData.venue?.image_path || null,
@@ -67,10 +157,8 @@ export default function TeamScreen({ teamId, goBack }) {
         const posOrder = ['Goalkeeper', 'Defender', 'Midfielder', 'Attacker'];
         const sortedPositions = Array.from(positionMap.keys())
           .sort((a, b) => {
-            let idxA = posOrder.indexOf(a);
-            let idxB = posOrder.indexOf(b);
-            if (idxA === -1) idxA = 999;
-            if (idxB === -1) idxB = 999;
+            let idxA = posOrder.indexOf(a); let idxB = posOrder.indexOf(b);
+            if (idxA === -1) idxA = 999; if (idxB === -1) idxB = 999;
             return idxA - idxB;
           })
           .map((pos) => ({ name: pos, players: positionMap.get(pos) }));
@@ -86,125 +174,154 @@ export default function TeamScreen({ teamId, goBack }) {
     }
   };
 
-  // FIX: Tampilkan error state agar tidak blank screen diam
+  const handleBack = () => {
+    if (getValidId(initialTeamId)) {
+      // Kalau dari awal dipassing dari screen jadwal/detail, langsung exit screen balik ke App.js
+      goBack();
+    } else if (selectedTeamId) {
+      // Kalau hasil klik mandiri di dalam list search screen ini, balikin ke view search list
+      setSelectedTeamId(null);
+    } else {
+      if (goBack) goBack();
+    }
+  };
+
+  // Filter Penentu Data yang Tampil di Grid Screen
+  const displayedTeams = searchQuery.trim().length >= 3
+    ? searchTeams
+    : seasonTeams.filter((t) => t.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  // --- RENDER ERROR STATE ---
   if (!loading && error) {
     return (
       <View className="flex-1 bg-equd items-center justify-center px-6">
+        <TouchableOpacity onPress={handleBack} className="absolute top-12 left-6 p-3 bg-white/5 rounded-full"><ChevronLeftIcon /></TouchableOpacity>
+        <Text className="text-gray-400 text-center mb-6">{error}</Text>
         <TouchableOpacity
-          onPress={goBack}
-          className="absolute top-6 left-4 p-2 bg-white/10 rounded-full"
+          onPress={() => selectedTeamId ? loadTeamAndSquadData(selectedTeamId) : loadDefaultTeams()}
+          className="bg-red-600 px-8 py-3 rounded-full"
         >
-          <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24">
-            <Path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </Svg>
-        </TouchableOpacity>
-        <Text className="text-red-400 text-center mb-4">{error}</Text>
-        <TouchableOpacity
-          onPress={loadTeamAndSquadData}
-          className="bg-red-600 px-6 py-3 rounded-xl"
-        >
-          <Text className="text-white font-bold">Coba Lagi</Text>
+          <Text className="text-white font-bold text-xs uppercase tracking-wider">Coba Lagi</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <View className="flex-1 bg-equd w-full">
-      <ImageBackground
-        source={teamInfo.venueImg ? { uri: teamInfo.venueImg } : undefined}
-        style={{ paddingTop: 16, paddingBottom: 24 }}
-        className="relative z-10 bg-culos"
-      >
-        <View className="absolute top-0 left-0 right-0 bottom-0 bg-black/60 z-0" />
-
-        <View className="flex-row items-center justify-start px-4 mb-4 z-20">
-          <TouchableOpacity onPress={goBack} className="p-2 bg-black/30 rounded-full">
-            <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24">
-              <Path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </Svg>
-          </TouchableOpacity>
+  // --- MODE A: TAMPILKAN LIST GRID & SEARCH BAR (JIKA BELUM PILIH TIM / TAB STANDINGS) ---
+  if (!selectedTeamId) {
+    return (
+      <View className="flex-1 bg-equd w-full pt-12">
+        {/* Header Pencarian */}
+        <View className="px-5 mb-4">
+          <Text className="text-xl font-black text-white uppercase tracking-wider mb-3">Cari Skuad Tim</Text>
+          <View className="flex-row items-center bg-culos rounded-xl px-4 py-2.5 border border-white/5">
+            <SearchIcon />
+            <TextInput
+              placeholder="Ketik nama tim favoritmu..."
+              placeholderTextColor="#6b7280"
+              className="flex-1 text-white text-xs font-semibold ml-3 p-0 h-6"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {isSearching && <ActivityIndicator size="small" color="#FC0B12" />}
+          </View>
         </View>
 
-        <View className="px-6 items-start z-20">
-          <View className="w-24 h-24 rounded-full bg-white items-center justify-center mb-3 overflow-hidden">
-            <Image source={{ uri: teamInfo.logo }} className="w-20 h-20" resizeMode="contain" />
-          </View>
-          <Text className="text-2xl font-black text-white uppercase tracking-wide">
-            {teamInfo.name}
-          </Text>
-          {teamInfo.venue && (
-            <View className="flex-row items-center mt-1.5 opacity-90">
-              <Text className="text-xs font-medium text-gray-200">🏟️ {teamInfo.venue}</Text>
+        {/* List Grid Tim */}
+        {loading ? (
+          <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="#FC0B12" /></View>
+        ) : (
+          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+            {displayedTeams.length === 0 ? (
+              <View className="items-center py-16">
+                <Text className="text-gray-500 font-medium text-xs">
+                  {isSearching ? 'Mencari klub...' : 'Tim tidak ditemukan.'}
+                </Text>
+              </View>
+            ) : (
+              <View className="flex-row flex-wrap justify-between pb-10 mt-2">
+                {displayedTeams.map((team) => (
+                  <TouchableOpacity
+                    key={team.id}
+                    onPress={() => setSelectedTeamId(team.id)}
+                    activeOpacity={0.7}
+                    className="w-[48%] bg-culos p-4 rounded-2xl items-center mb-4 border border-white/5"
+                  >
+                    <View className="w-16 h-16 bg-white/5 rounded-full items-center justify-center mb-3 p-1.5">
+                      <Image source={{ uri: team.image_path || 'https://placehold.co/60' }} className="w-full h-full" resizeMode="contain" />
+                    </View>
+                    <Text className="text-xs font-black text-white text-center uppercase tracking-wide" numberOfLines={1}>
+                      {team.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </View>
+    );
+  }
+
+  // --- MODE B: TAMPILKAN DETAIL TIM & SKUAD PEMAIN (TIM SUDAH DIPILIH) ---
+  return (
+    <View className="flex-1 bg-equd w-full">
+      <ImageBackground source={teamInfo.venueImg ? { uri: teamInfo.venueImg } : undefined} className="relative z-10 bg-equd pt-12 pb-8 border-b border-white/5">
+        <View className="absolute inset-0 bg-equd/90" />
+        <View className="px-6 relative z-20">
+          <TouchableOpacity onPress={handleBack} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center mb-6"><ChevronLeftIcon /></TouchableOpacity>
+          <View className="items-center">
+            <View className="w-20 h-20 bg-white/5 rounded-full items-center justify-center mb-4 p-2">
+              <Image source={{ uri: teamInfo.logo }} className="w-full h-full" resizeMode="contain" />
             </View>
-          )}
+            <Text className="text-2xl font-black text-white uppercase tracking-wider text-center">{teamInfo.name}</Text>
+            {teamInfo.venue && (
+              <View className="flex-row items-center gap-1.5 mt-2 bg-white/5 px-3 py-1.5 rounded-full">
+                <MapPinIcon />
+                <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{teamInfo.venue}</Text>
+              </View>
+            )}
+          </View>
         </View>
       </ImageBackground>
 
-      <ScrollView className="flex-1 w-full" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 w-full p-5" showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View className="items-center py-16">
-            <ActivityIndicator size="large" color="#FC0B12" />
-          </View>
+          <View className="items-center py-16"><ActivityIndicator size="large" color="#FC0B12" /></View>
         ) : squadPositions.length === 0 ? (
-          <View className="items-center py-16">
-            <Text className="text-5xl mb-3 opacity-30">👕</Text>
-            <Text className="text-gray-500 font-medium text-sm">Belum ada data pemain.</Text>
-          </View>
+          <View className="items-center py-16"><Text className="text-gray-500 font-medium text-xs">Belum ada data pemain.</Text></View>
         ) : (
-          <View className="px-4 pt-4 pb-8">
+          <View className="pb-8">
             {squadPositions.map((posGrp, idx) => (
-              <View key={idx} className="mb-5">
-                <Text className="text-lg font-black text-white tracking-widest mb-2 px-1">
-                  {posGrp.name}
-                </Text>
-                <View className="bg-culos rounded-xl overflow-hidden">
+              <View key={idx} className="mb-6">
+                <Text className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-2">{posGrp.name}</Text>
+                <View className="bg-culos rounded-2xl overflow-hidden shadow-sm">
                   {posGrp.players.map((item, pIdx) => {
                     const player = item.player;
                     let age = '-';
                     if (player.date_of_birth) {
                       const birthDate = new Date(player.date_of_birth);
                       const today = new Date();
-                      let ageNum = today.getFullYear() - birthDate.getFullYear();
-                      const monthDiff = today.getMonth() - birthDate.getMonth();
-                      if (
-                        monthDiff < 0 ||
-                        (monthDiff === 0 && today.getDate() < birthDate.getDate())
-                      )
-                        ageNum--;
-                      age = ageNum;
+                      age = today.getFullYear() - birthDate.getFullYear();
+                      if (today.getMonth() - birthDate.getMonth() < 0 || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age--;
                     }
-
                     return (
-                      <View key={pIdx} className="flex-row items-center px-4 py-3">
-                        <View className="w-11 h-11 rounded-full bg-white/10 overflow-hidden mr-3">
-                          <Image
-                            source={{ uri: player.image_path || 'https://placehold.co/44' }}
-                            className="w-full h-full"
-                            resizeMode="cover"
-                          />
+                      <View key={pIdx} className={`flex-row items-center px-5 py-3 ${pIdx !== posGrp.players.length - 1 ? 'border-b border-white/5' : ''}`}>
+                        <View className="w-10 h-10 rounded-full bg-white/5 overflow-hidden mr-4">
+                          <Image source={{ uri: player.image_path || 'https://placehold.co/40' }} className="w-full h-full" resizeMode="cover" />
                         </View>
                         <View className="flex-1">
-                          <Text className="text-sm font-bold text-white">
-                            {player.name || 'Tidak diketahui'}
-                          </Text>
-                          <View className="flex-row items-center gap-2 mt-0.5">
-                            <Text className="text-[11px] text-gray-400">Umur {age}</Text>
+                          <Text className="text-xs font-bold text-white mb-0.5" numberOfLines={1}>{player.name || 'Tidak diketahui'}</Text>
+                          <View className="flex-row items-center gap-2">
+                            <Text className="text-[10px] font-medium text-gray-400">Umur {age}</Text>
                             {player.nationality && (
-                              <View className="flex-row items-center gap-1">
-                                <Image
-                                  source={{ uri: player.nationality.image_path }}
-                                  className="w-4 h-3"
-                                  resizeMode="contain"
-                                />
-                                <Text className="text-[11px] text-gray-400">
-                                  {player.nationality.name}
-                                </Text>
+                              <View className="flex-row items-center gap-1.5 border-l border-white/10 pl-2">
+                                <Image source={{ uri: player.nationality.image_path }} className="w-3.5 h-2.5 rounded-sm" resizeMode="cover" />
+                                <Text className="text-[10px] font-medium text-gray-400" numberOfLines={1}>{player.nationality.name}</Text>
                               </View>
                             )}
                           </View>
                         </View>
-                        <Text className="text-xs text-gray-500 italic">{posGrp.name}</Text>
                       </View>
                     );
                   })}
