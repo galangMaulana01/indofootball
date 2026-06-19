@@ -7,8 +7,9 @@ import AuthModal from './src/components/AuthModal';
 import MatchesScreen from './src/screens/MatchesScreen';
 import MatchDetailScreen from './src/screens/MatchDetailScreen';
 import TeamScreen from './src/screens/TeamScreen';
+import LeagueScreen from './src/screens/LeagueScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
-import { Svg, Path, Rect } from 'react-native-svg';
+import { Svg, Path } from 'react-native-svg';
 
 GoogleSignin.configure({
   webClientId: "304025860925-lhf78thaj8p1ncq8sqavk5vktsqcumfd.apps.googleusercontent.com",
@@ -100,6 +101,7 @@ export default function App() {
   const [previousView, setPreviousView] = useState('matches');
   const [selectedMatchId, setSelectedMatchId] = useState(null);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [selectedLeague, setSelectedLeague] = useState(null);
   const sessionStorageDismissed = useRef(false);
 
   useEffect(() => {
@@ -124,10 +126,10 @@ export default function App() {
     setCurrentView(view);
     if (view === 'detail') setSelectedMatchId(payload);
     if (view === 'team') setSelectedTeamId(payload);
+    if (view === 'league') setSelectedLeague(payload);
   };
 
   const isMainView = currentView === 'matches' || currentView === 'standings' || currentView === 'profile' || currentView === 'topscorers';
-
 
   return (
     <View className="flex-1 bg-black">
@@ -135,40 +137,44 @@ export default function App() {
 
       {/* VIEWS */}
       {currentView === 'matches' && (
-        <MatchesScreen onMatchClick={(id) => navigateTo('detail', id)} />
+        <MatchesScreen onMatchClick={(id) => navigateTo('detail', id)}  onLeagueClick={(league) => navigateTo('league', league)} />
       )}
-      
-      {/* FIX 1: Saat di tab Standings/Cari Klub, pastikan teamId di-set null 
-          supaya TeamScreen otomatis ngebuka halaman SEARCH/LIST, bukan nyari detail */}
+
+      {/* Mode Cari Klub (Menu Standings) - Paksa teamId jadi null */}
       {currentView === 'standings' && (
-        <TeamScreen 
-          teamId={null} 
-          goBack={() => setCurrentView('matches')} 
+        <TeamScreen
+          teamId={null}
+          goBack={() => setCurrentView('matches')}
         />
       )}
-      
+
       {currentView === 'detail' && (
         <MatchDetailScreen
           matchId={selectedMatchId}
           goBack={() => setCurrentView(previousView === 'detail' ? 'matches' : previousView)}
         />
       )}
-      
-      {/* FIX 2: Saat melihat DETAIL TIM tertentu (hasil klik dari matches atau match detail) */}
+
+      {/* Mode Detail Klub (Ketika logo klub di-klik dari jadwal) */}
       {currentView === 'team' && (
         <TeamScreen
           teamId={selectedTeamId}
-          goBack={() => {
-            // Jika sebelumnya dari detail match, balikin ke detail match, selain itu balik ke matches
-            setCurrentView(previousView === 'detail' ? 'detail' : 'matches');
-          }}
+          goBack={() => setCurrentView(previousView === 'detail' ? 'detail' : 'matches')}
         />
       )}
-      
+
+{currentView === 'league' && (
+  <LeagueScreen
+    league={selectedLeague}
+    goBack={() => setCurrentView('matches')}
+  />
+)}
+
       {currentView === 'profile' && (
         <ProfileScreen user={user} onLogout={handleLogout} />
       )}
 
+      {/* BOTTOM NAV */}
       {isMainView && (
         <View className="absolute bottom-0 left-0 w-full bg-culos flex-row pb-6">
           {/* Jadwal */}
@@ -181,7 +187,7 @@ export default function App() {
             </Svg>
           </TouchableOpacity>
 
-          {/* Klasemen */}
+          {/* Cari Klub */}
           <TouchableOpacity
             onPress={() => setCurrentView('standings')}
             className="flex-1 py-3 items-center gap-1"
@@ -209,5 +215,5 @@ export default function App() {
       {/* AUTH MODAL */}
       <AuthModal visible={authModalVisible} onClose={() => setAuthModalVisible(false)} />
     </View>
-  ); // FIX: Menutup return statement dengan benar
+  );
 }

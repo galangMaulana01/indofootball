@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,9 +12,6 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { safeFetch } from '../utils/api';
-import { activeSeasonIdGlobal } from './MatchesScreen';
-
-const TARGET_LEAGUE_ID = 501;
 
 // --- Icon SVG ---
 const MapPinIcon = ({ size = 12, color = "#9ca3af" }) => (
@@ -37,7 +35,7 @@ const SearchIcon = ({ size = 16, color = "#9ca3af" }) => (
 );
 
 export default function TeamScreen({ teamId: initialTeamId, goBack }) {                                                                           
-  // Validasi id biar string "undefined" ga lolos nembak API
+  // HELPER: Validasi ID ketat agar string "undefined", undefined, atau null tidak lolos
   const getValidId = (id) => {
     if (!id || id === 'undefined' || id === undefined || id === null) return null;
     return id;
@@ -51,27 +49,25 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
   const [teamInfo, setTeamInfo] = useState({});
   const [squadPositions, setSquadPositions] = useState([]);
 
-  // State Mode Pencarian Tim (Jika diakses dari tab standings / belum pilih tim)
-  const [seasonTeams, setSeasonTeams] = useState([]);
+  // State Mode Pencarian Tim 
   const [searchTeams, setSearchTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Sinkronisasi state lokal jika props teamId dari App.js berubah
+  // Sinkronisasi state lokal jika props teamId berubah
   useEffect(() => {
     setSelectedTeamId(getValidId(initialTeamId));
   }, [initialTeamId]);
 
-  // Efek utama menentukan apakah harus load list tim liga atau detail skuad satu tim
-  useEffect(() => {
-    if (selectedTeamId) {
-      loadTeamAndSquadData(selectedTeamId);
-    } else {
-      loadDefaultTeams();
-    }
-  }, [selectedTeamId]);
-
-  // Efek Debounce Pencarian Global ke BE lo (min 3 huruf)
+  // Efek Utama: Tentukan apakah harus muat list tim liga ATAU detail satu tim
+useEffect(() => {
+  if (selectedTeamId) {
+    loadTeamAndSquadData(selectedTeamId);
+  } else {
+    setLoading(false);
+  }
+}, [selectedTeamId]);
+  // Efek Debounce Pencarian API Backend (Jalan kalau minimal ketik 3 huruf)
   useEffect(() => {
     const query = searchQuery.trim();
     if (query.length >= 3 && !selectedTeamId) {
@@ -85,55 +81,26 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
         } finally {
           setIsSearching(false);
         }
-      }, 500); // Tahan 500ms biar ga spam request pas ngetik
+      }, 500);
       return () => clearTimeout(timeoutId);
     } else {
       setSearchTeams([]);
     }
   }, [searchQuery, selectedTeamId]);
 
-  // 1. Ambil list tim default kompetisi aktif liga lo
-  const loadDefaultTeams = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let seasonId = activeSeasonIdGlobal;
-      if (!seasonId) {                                                                                                                            
-        const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);                                                                       
-        seasonId = leagueJson?.data?.currentSeason?.id || leagueJson?.data?.current_season_id || null;                                            
-      }
-      if (!seasonId) throw new Error('Tidak bisa mendapatkan season ID aktif');                                                                                                                                                                                                                     
 
-      const teamsJson = await safeFetch(`/teams/seasons/${seasonId}`);
-      setSeasonTeams(teamsJson?.data || []);
-    } catch (e) {
-      console.error('LoadDefaultTeams error:', e);
-      setError(e.message || 'Gagal memuat daftar semua tim');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 2. Ambil data spesifik SATU TIM & Skuad pemainnya berdasarkan id
+  // 2. Fungsi muat data spesifik SATU TIM & skuad pemainnya
   const loadTeamAndSquadData = async (id) => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      let seasonId = activeSeasonIdGlobal;
-      if (!seasonId) {                                                                                                                            
-        const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);                                                                       
-        seasonId = leagueJson?.data?.currentSeason?.id || leagueJson?.data?.current_season_id || null;                                            
-      }
-      if (!seasonId) throw new Error('Tidak bisa mendapatkan season ID aktif');                                                                                                                                                                                                                     
-
-      const [teamJson, squadJson] = await Promise.all([                                                                                           
-        safeFetch(`/teams/${id}`),
-        safeFetch(`/squads/seasons/${seasonId}/teams/${id}`),                                                                                     
-      ]);                                                                                                                                                                                                                                                                                           
-
-      const tData = teamJson?.data || {};                                                                                                         
-      const playersData = squadJson?.data || [];
+const [teamJson, squadJson] = await Promise.all([
+  safeFetch(`/teams/${id}`),
+  safeFetch(`/squads/teams/${id}`),
+]);
+      const tData = teamJson?.data || teamJson || {};                                                                                                         
+      const playersData = squadJson?.data || squadJson || [];
 
       setTeamInfo({
         name: tData.name || 'Nama Tim',
@@ -147,8 +114,8 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
       } else {
         const positionMap = new Map();
         playersData.forEach((item) => {
-          const player = item.player;
-          if (!player) return;
+          const player = item.player || item; // Handle nested player object just in case
+          if (!player || !player.name) return;
           const posName = player.position?.name || 'Lainnya';
           if (!positionMap.has(posName)) positionMap.set(posName, []);
           positionMap.get(posName).push(item);
@@ -176,48 +143,46 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
 
   const handleBack = () => {
     if (getValidId(initialTeamId)) {
-      // Kalau dari awal dipassing dari screen jadwal/detail, langsung exit screen balik ke App.js
       goBack();
     } else if (selectedTeamId) {
-      // Kalau hasil klik mandiri di dalam list search screen ini, balikin ke view search list
       setSelectedTeamId(null);
     } else {
       if (goBack) goBack();
     }
   };
 
-  // Filter Penentu Data yang Tampil di Grid Screen
-  const displayedTeams = searchQuery.trim().length >= 3
-    ? searchTeams
-    : seasonTeams.filter((t) => t.name?.toLowerCase().includes(searchQuery.toLowerCase()));
-
+  // Logic Penentu Grid Tampilan
+const displayedTeams = searchTeams;
   // --- RENDER ERROR STATE ---
   if (!loading && error) {
     return (
       <View className="flex-1 bg-equd items-center justify-center px-6">
         <TouchableOpacity onPress={handleBack} className="absolute top-12 left-6 p-3 bg-white/5 rounded-full"><ChevronLeftIcon /></TouchableOpacity>
         <Text className="text-gray-400 text-center mb-6">{error}</Text>
-        <TouchableOpacity
-          onPress={() => selectedTeamId ? loadTeamAndSquadData(selectedTeamId) : loadDefaultTeams()}
-          className="bg-red-600 px-8 py-3 rounded-full"
-        >
+<TouchableOpacity
+  onPress={() => {
+    if (selectedTeamId) {
+      loadTeamAndSquadData(selectedTeamId);
+    }
+  }}
+  className="bg-red-600 px-8 py-3 rounded-full"
+>
           <Text className="text-white font-bold text-xs uppercase tracking-wider">Coba Lagi</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // --- MODE A: TAMPILKAN LIST GRID & SEARCH BAR (JIKA BELUM PILIH TIM / TAB STANDINGS) ---
+  // --- MODE A: TAMPILKAN LIST & SEARCH BAR ---
   if (!selectedTeamId) {
     return (
       <View className="flex-1 bg-equd w-full pt-12">
-        {/* Header Pencarian */}
         <View className="px-5 mb-4">
           <Text className="text-xl font-black text-white uppercase tracking-wider mb-3">Cari Skuad Tim</Text>
           <View className="flex-row items-center bg-culos rounded-xl px-4 py-2.5 border border-white/5">
             <SearchIcon />
             <TextInput
-              placeholder="Ketik nama tim favoritmu..."
+              placeholder="Ketik nama klub favorit..."
               placeholderTextColor="#6b7280"
               className="flex-1 text-white text-xs font-semibold ml-3 p-0 h-6"
               value={searchQuery}
@@ -227,7 +192,6 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
           </View>
         </View>
 
-        {/* List Grid Tim */}
         {loading ? (
           <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="#FC0B12" /></View>
         ) : (
@@ -245,9 +209,9 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
                     key={team.id}
                     onPress={() => setSelectedTeamId(team.id)}
                     activeOpacity={0.7}
-                    className="w-[48%] bg-culos p-4 rounded-2xl items-center mb-4 border border-white/5"
+                    className="w-[48%] bg-culos p-4 rounded-2xl items-center mb-4 shadow-sm border border-white/5"
                   >
-                    <View className="w-16 h-16 bg-white/5 rounded-full items-center justify-center mb-3 p-1.5">
+                    <View className="w-16 h-16 bg-white/5 rounded-full items-center justify-center mb-3 p-2">
                       <Image source={{ uri: team.image_path || 'https://placehold.co/60' }} className="w-full h-full" resizeMode="contain" />
                     </View>
                     <Text className="text-xs font-black text-white text-center uppercase tracking-wide" numberOfLines={1}>
@@ -263,7 +227,7 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
     );
   }
 
-  // --- MODE B: TAMPILKAN DETAIL TIM & SKUAD PEMAIN (TIM SUDAH DIPILIH) ---
+  // --- MODE B: TAMPILKAN DETAIL PROFIL SKUAD TIM ---
   return (
     <View className="flex-1 bg-equd w-full">
       <ImageBackground source={teamInfo.venueImg ? { uri: teamInfo.venueImg } : undefined} className="relative z-10 bg-equd pt-12 pb-8 border-b border-white/5">
@@ -271,7 +235,7 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
         <View className="px-6 relative z-20">
           <TouchableOpacity onPress={handleBack} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center mb-6"><ChevronLeftIcon /></TouchableOpacity>
           <View className="items-center">
-            <View className="w-20 h-20 bg-white/5 rounded-full items-center justify-center mb-4 p-2">
+            <View className="w-20 h-20 bg-white/5 rounded-full items-center justify-center mb-4 p-2 shadow-lg">
               <Image source={{ uri: teamInfo.logo }} className="w-full h-full" resizeMode="contain" />
             </View>
             <Text className="text-2xl font-black text-white uppercase tracking-wider text-center">{teamInfo.name}</Text>
@@ -297,7 +261,7 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
                 <Text className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-2">{posGrp.name}</Text>
                 <View className="bg-culos rounded-2xl overflow-hidden shadow-sm">
                   {posGrp.players.map((item, pIdx) => {
-                    const player = item.player;
+                    const player = item.player || item;
                     let age = '-';
                     if (player.date_of_birth) {
                       const birthDate = new Date(player.date_of_birth);

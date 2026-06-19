@@ -102,6 +102,21 @@ export default function MatchDetailScreen({ matchId, goBack }) {
     return { home: parseInt(homeVal), away: parseInt(awayVal) };
   };
 
+//prediksi
+const getMatchPrediction = () => {
+  const predictions = matchData?.fixture?.predictions || [];
+
+  return predictions.find(
+    (p) =>
+      p.type_id === 237 ||
+      p.type?.code === 'fulltime-result-probability'
+  );
+};
+
+
+
+
+
   const renderOverview = () => {
     const { fixture, homeTeam, awayTeam } = matchData;
     const events = fixture.events || [];
@@ -117,6 +132,7 @@ export default function MatchDetailScreen({ matchId, goBack }) {
     }
 
     const possession = getPossession();
+    const prediction = getMatchPrediction();
 
     return (
       <View className="mb-8">
@@ -128,12 +144,74 @@ export default function MatchDetailScreen({ matchId, goBack }) {
               <Text className="text-white font-black text-sm">{possession.home}%</Text>
               <Text className="text-white font-black text-sm">{possession.away}%</Text>
             </View>
-            <View className="w-full h-2 rounded-full overflow-hidden flex-row">
+            <View className="w-full h-3 rounded-full overflow-hidden flex-row">
               <View className="bg-red-600 h-full" style={{ width: `${possession.home}%` }} />
               <View className="bg-gray-600 h-full" style={{ width: `${possession.away}%` }} />
             </View>
           </View>
         )}
+
+
+
+{prediction && (
+  <View className="bg-culos rounded-2xl p-5 mb-4 shadow-sm">
+
+    <View className="flex-row justify-between mb-3">
+      <Text className="text-gray-300 text-xs">
+        Home
+      </Text>
+
+      <Text className="text-gray-300 text-xs">
+        Draw
+      </Text>
+
+      <Text className="text-gray-300 text-xs">
+        Away
+      </Text>
+    </View>
+
+    <View className="flex-row justify-between mb-3">
+      <Text className="text-white font-black text-lg">
+        {prediction.predictions.home.toFixed(0)}%
+      </Text>
+
+      <Text className="text-white font-black text-lg">
+        {prediction.predictions.draw.toFixed(0)}%
+      </Text>
+
+      <Text className="text-white font-black text-lg">
+        {prediction.predictions.away.toFixed(0)}%
+      </Text>
+    </View>
+
+    <View className="w-full h-3 rounded-full overflow-hidden flex-row">
+      <View
+        className="bg-red-600"
+        style={{
+          width: `${prediction.predictions.home}%`
+        }}
+      />
+
+      <View
+        className="bg-gray-500"
+        style={{
+          width: `${prediction.predictions.draw}%`
+        }}
+      />
+
+      <View
+        className="bg-yellow-500"
+        style={{
+          width: `${prediction.predictions.away}%`
+        }}
+      />
+    </View>
+  </View>
+)}
+
+
+
+
 
         {/* Goal Scorers */}
         {(homeScorers.length > 0 || awayScorers.length > 0) && (

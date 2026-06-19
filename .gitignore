@@ -15,7 +15,6 @@ android/
 .env*.local
 
 # Firebase / Google Credentials (Sangat disarankan di-ignore jika repo kamu publik)
-google-services.json
 GoogleService-Info.plist
 
 # Logs
