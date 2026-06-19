@@ -61,17 +61,19 @@ export default function MatchDetailScreen({ matchId, goBack }) {
     }
   };
 
-  const fetchStandings = async (seasonId) => {
-    setLoadingStandings(true);
-    try {
-      const json = await safeFetch(`/standings/seasons/${seasonId}`);
-      setStandingsData(json?.data || []);
-    } catch (err) {
-      console.error('Error fetching standings:', err);
-    } finally {
-      setLoadingStandings(false);
-    }
-  };
+const fetchStandings = async (seasonId) => {
+  setLoadingStandings(true);
+  try {
+    const json = await safeFetch(`/standings/seasons/${seasonId}`);
+    const rows = json?.data || [];
+    setStandingsData(rows);
+  } catch (err) {
+    console.error('Error fetching standings:', err);
+    setStandingsData([]);
+  } finally {
+    setLoadingStandings(false);
+  }
+};
 
   const renderOverview = () => {
     const { fixture, homeTeam, awayTeam } = matchData;
@@ -156,7 +158,6 @@ export default function MatchDetailScreen({ matchId, goBack }) {
   };
 
   const renderEvents = () => {
-    // ... (Kode renderEvents tetap sama persis seperti aslinya)
     const { fixture, homeTeam } = matchData;
     const events = fixture.events || [];
     if (!events.length)
@@ -389,77 +390,117 @@ export default function MatchDetailScreen({ matchId, goBack }) {
   };
 
   // KOMPONEN RENDER STANDINGS BARU
-  const renderStandings = () => {
-    if (loadingStandings) {
-      return (
-        <View className="py-10 items-center justify-center">
-          <ActivityIndicator size="large" color="#FC0B12" />
-        </View>
-      );
-    }
 
-    if (!standingsData || standingsData.length === 0) {
-      return (
-        <View className="bg-culos p-8 rounded-xl items-center">
-          <Text className="text-sm font-medium text-gray-500">Data klasemen belum tersedia.</Text>
-        </View>
-      );
-    }
 
+
+
+const renderStandings = () => {
+  if (loadingStandings) {
     return (
-      <View className="mb-8 bg-culos rounded-xl overflow-hidden pb-4 shadow-sm">
-        {/* Table Header */}
-        <View className="flex-row items-center px-4 py-3 bg-white/5 border-b border-white/5">
-          <Text className="w-8 text-center text-[10px] font-bold text-gray-400 uppercase">#</Text>
-          <Text className="flex-1 text-[10px] font-bold text-gray-400 uppercase pl-2">Tim</Text>
-          <Text className="w-8 text-center text-[10px] font-bold text-gray-400 uppercase">M</Text>
-          <Text className="w-8 text-center text-[10px] font-bold text-gray-400 uppercase">M</Text>
-          <Text className="w-8 text-center text-[10px] font-bold text-gray-400 uppercase">S</Text>
-          <Text className="w-8 text-center text-[10px] font-bold text-gray-400 uppercase">K</Text>
-          <Text className="w-10 text-center text-[10px] font-bold text-gray-400 uppercase">Poin</Text>
-        </View>
-
-        {standingsData.map((item, index) => {
-          const team = item.participant || {};
-          const details = Array.isArray(item.details) ? item.details : [];
-
-          const won = details.find((d) => d.type?.code === 'wins' || d.type?.name?.toLowerCase().includes('won'))?.value ?? item.won ?? '-';
-          const draw = details.find((d) => d.type?.code === 'draws' || d.type?.name?.toLowerCase().includes('draw'))?.value ?? item.draw ?? '-';
-          const lost = details.find((d) => d.type?.code === 'lost' || d.type?.name?.toLowerCase().includes('lost'))?.value ?? item.lost ?? '-';
-          const played = details.find((d) => d.type?.code === 'matches_played' || d.type?.name?.toLowerCase().includes('played'))?.value ?? item.games_played ?? '-';
-
-          // Highlight tim yang bermain di match ini (Home / Away)
-          const isPlayingTeam = team.id === matchData.homeTeam.id || team.id === matchData.awayTeam.id;
-
-          return (
-            <View
-              key={item.id || index}
-              className={`flex-row items-center px-4 py-3 border-b border-white/5 ${isPlayingTeam ? 'bg-white/10' : ''}`}
-            >
-              <Text className={`text-xs font-bold w-8 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-400'}`}>
-                {item.position || index + 1}
-              </Text>
-              <View className="flex-row items-center flex-1 gap-2 pl-1">
-                {team.image_path ? (
-                  <Image source={{ uri: team.image_path }} className="w-5 h-5" resizeMode="contain" />
-                ) : null}
-                <Text className={`text-sm flex-1 ${isPlayingTeam ? 'text-white font-bold' : 'text-gray-300 font-semibold'}`} numberOfLines={1}>
-                  {team.name || 'Tim'}
-                </Text>
-              </View>
-              <Text className={`text-xs w-8 text-center ${isPlayingTeam ? 'text-white font-semibold' : 'text-gray-300'}`}>{played}</Text>
-              <Text className={`text-xs w-8 text-center ${isPlayingTeam ? 'text-white font-semibold' : 'text-gray-300'}`}>{won}</Text>
-              <Text className={`text-xs w-8 text-center ${isPlayingTeam ? 'text-white font-semibold' : 'text-gray-300'}`}>{draw}</Text>
-              <Text className={`text-xs w-8 text-center ${isPlayingTeam ? 'text-white font-semibold' : 'text-gray-300'}`}>{lost}</Text>
-              <Text className={`text-sm w-10 text-center ${isPlayingTeam ? 'text-white font-black' : 'text-gray-300 font-bold'}`}>
-                {item.points ?? '-'}
-              </Text>
-            </View>
-          );
-        })}
+      <View className="py-10 items-center justify-center">
+        <ActivityIndicator size="large" color="#FC0B12" />
       </View>
     );
-  };
+  }
+
+  if (!standingsData || standingsData.length === 0) {
+    return (
+      <View className="bg-culos p-8 rounded-xl items-center">
+        <Text className="text-sm font-medium text-gray-500">Data klasemen belum tersedia.</Text>
+      </View>
+    );
+  }
+
+  // Group by group_id — handle liga reguler (group_id null) maupun group stage
+  const groups = {};
+  standingsData.forEach((item) => {
+    const key = item.group_id ?? 'main';
+    const groupName = item.group?.name ?? 'Klasemen';
+    if (!groups[key]) groups[key] = { name: groupName, rows: [] };
+    groups[key].rows.push(item);
+  });
+
+  // Sort tiap group by position
+  Object.values(groups).forEach((g) => {
+    g.rows.sort((a, b) => (a.position || 99) - (b.position || 99));
+  });
+
+  const getStat = (details, typeId) =>
+    details?.find((d) => d.type_id === typeId)?.value ?? '-';
+
+  return (
+    <View className="mb-8">
+      {Object.entries(groups).map(([groupId, group]) => (
+        <View key={groupId} className="bg-culos rounded-xl overflow-hidden pb-2 shadow-sm mb-4">
+          {/* Group Header */}
+          <View className="px-4 py-3 bg-white/5 border-b border-white/5">
+            <Text className="text-xs font-bold text-white uppercase tracking-wider">
+              {group.name}
+            </Text>
+          </View>
+
+          {/* Table Header */}
+          <View className="flex-row items-center px-4 py-2 border-b border-white/5">
+            <Text className="w-7 text-center text-[10px] font-bold text-gray-400">#</Text>
+            <Text className="flex-1 text-[10px] font-bold text-gray-400 pl-2">Tim</Text>
+            <Text className="w-7 text-center text-[10px] font-bold text-gray-400">M</Text>
+            <Text className="w-7 text-center text-[10px] font-bold text-gray-400">W</Text>
+            <Text className="w-7 text-center text-[10px] font-bold text-gray-400">S</Text>
+            <Text className="w-7 text-center text-[10px] font-bold text-gray-400">K</Text>
+            <Text className="w-9 text-center text-[10px] font-bold text-gray-400">Pts</Text>
+          </View>
+
+          {/* Rows */}
+          {group.rows.map((item, index) => {
+            const team = item.participant || {};
+            const details = Array.isArray(item.details) ? item.details : [];
+            const isPlayingTeam =
+              team.id === matchData.homeTeam.id || team.id === matchData.awayTeam.id;
+
+            return (
+              <View
+                key={item.id || index}
+                className={`flex-row items-center px-4 py-2.5 border-b border-white/5 ${
+                  isPlayingTeam ? 'bg-white/10' : ''
+                }`}
+              >
+                <Text className={`text-xs font-bold w-7 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-400'}`}>
+                  {item.position || index + 1}
+                </Text>
+                <View className="flex-row items-center flex-1 gap-2 pl-1">
+                  {team.image_path ? (
+                    <Image source={{ uri: team.image_path }} className="w-5 h-5" resizeMode="contain" />
+                  ) : null}
+                  <Text
+                    className={`text-xs flex-1 ${isPlayingTeam ? 'text-white font-bold' : 'text-gray-300'}`}
+                    numberOfLines={1}
+                  >
+                    {team.name || 'Tim'}
+                  </Text>
+                </View>
+                <Text className={`text-xs w-7 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-300'}`}>
+                  {getStat(details, 129)}
+                </Text>
+                <Text className={`text-xs w-7 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-300'}`}>
+                  {getStat(details, 130)}
+                </Text>
+                <Text className={`text-xs w-7 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-300'}`}>
+                  {getStat(details, 131)}
+                </Text>
+                <Text className={`text-xs w-7 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-300'}`}>
+                  {getStat(details, 132)}
+                </Text>
+                <Text className={`text-xs font-bold w-9 text-center ${isPlayingTeam ? 'text-white' : 'text-gray-300'}`}>
+                  {item.points ?? '-'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+};
 
   if (!loading && error) {
     return (

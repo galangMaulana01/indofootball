@@ -5,7 +5,6 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './src/config/firebaseConfig';
 import AuthModal from './src/components/AuthModal';
 import MatchesScreen from './src/screens/MatchesScreen';
-import StandingsScreen from './src/screens/StandingsScreen';
 import MatchDetailScreen from './src/screens/MatchDetailScreen';
 import TeamScreen from './src/screens/TeamScreen';
 import TopScorersScreen from './src/screens/TopScorersScreen';
@@ -140,7 +139,7 @@ export default function App() {
         <MatchesScreen onMatchClick={(id) => navigateTo('detail', id)} />
       )}
       {currentView === 'standings' && (
-        <StandingsScreen onTeamClick={(id) => navigateTo('team', id)} />
+        <TopScorersScreen onTeamClick={(id) => navigateTo('team', id)} />
       )}
       {currentView === 'detail' && (
         <MatchDetailScreen
