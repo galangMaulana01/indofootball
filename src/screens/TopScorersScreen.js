@@ -1,14 +1,17 @@
 // src/screens/TopScorersScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { safeFetch } from '../utils/api';
+// FIX: Import activeSeasonIdGlobal — sekarang sudah di-export dari MatchesScreen
 import { activeSeasonIdGlobal } from './MatchesScreen';
 
-const API_BASE_URL = "https://sportmonks-tawny.vercel.app";
+const TARGET_LEAGUE_ID = 501;
 
-export default function TopScorersScreen({ onPlayerClick }) {  // onPlayerClick optional jika mau navigasi ke detail player nanti
+export default function TopScorersScreen({ onPlayerClick }) {
   const [loading, setLoading] = useState(true);
   const [topScorers, setTopScorers] = useState([]);
-  const [leagueName, setLeagueName] = useState("Top Scorers");
+  const [leagueName, setLeagueName] = useState('Top Scorers');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchTopScorers();
@@ -16,47 +19,68 @@ export default function TopScorersScreen({ onPlayerClick }) {  // onPlayerClick 
 
   const fetchTopScorers = async () => {
     setLoading(true);
+    setError(null);
     try {
+      // Ambil league info untuk nama header & fallback season ID
+      const leagueJson = await safeFetch(`/leagues/${TARGET_LEAGUE_ID}`);
+      setLeagueName(leagueJson?.data?.name || 'Top Scorers Liga');
+
+      // Resolve season ID: global dulu, fallback ke currentSeason dari league
       let seasonId = activeSeasonIdGlobal;
-      
-      // Ambil league info untuk header
-      const leagueRes = await fetch(`${API_BASE_URL}/leagues/501`); // Sesuaikan dengan TARGET_LEAGUE_IDS di MatchesScreen
-      const leagueJson = await leagueRes.json();
-      setLeagueName(leagueJson?.data?.name || "Top Scorers Liga");
 
       if (!seasonId) {
-        seasonId = leagueJson?.data?.currentseason?.id;
+        seasonId =
+          leagueJson?.data?.currentSeason?.id ||
+          leagueJson?.data?.current_season_id ||
+          null;
       }
 
       if (!seasonId) {
-        console.error("No season ID available");
-        setLoading(false);
-        return;
+        throw new Error('Tidak bisa mendapatkan season ID aktif');
       }
 
-      const res = await fetch(`\( {API_BASE_URL}/topscorers/seasons/ \){seasonId}?include=player,team`);
-      const json = await res.json();
-      
+      // FIX KRITIS: Template literal sebelumnya rusak: `\( {API_BASE_URL}/topscorers/seasons/ \){seasonId}`
+      // → sekarang menggunakan safeFetch dengan template literal yang benar
+      const json = await safeFetch(`/topscorers/seasons/${seasonId}`);
+
       const scorersData = json?.data || [];
-      // Sort by goals descending (API biasanya sudah sorted, tapi pastikan)
-      const sortedScorers = [...scorersData].sort((a, b) => (b.goals || 0) - (a.goals || 0));
-      
+
+      // FIX: SportMonks v3 menyimpan gol di scorer.total.goals, bukan scorer.goals langsung
+      const sortedScorers = [...scorersData].sort(
+        (a, b) => (b.total?.goals ?? b.goals ?? 0) - (a.total?.goals ?? a.goals ?? 0)
+      );
+
       setTopScorers(sortedScorers);
     } catch (err) {
-      console.error("Error fetching top scorers:", err);
+      console.error('Error fetching top scorers:', err);
+      setError(err.message || 'Gagal memuat data top scorers');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <View className="flex-1 bg-equd w-full pb-20">
       {/* Header */}
-      <Text className="text-md font-black text-white tracking-tight px-3 mt-2">{leagueName}</Text>
+      <View className="px-4 pt-4 pb-3 border-b border-white/10">
+        <Text className="text-2xl font-black text-white tracking-tighter">Top Skor</Text>
+        <Text className="text-xs text-gray-400">{leagueName}</Text>
+      </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="items-center py-16">
             <ActivityIndicator size="large" color="#FC0B12" />
+          </View>
+        ) : error ? (
+          <View className="items-center py-20 px-6">
+            <Text className="text-red-500 text-center mb-4">{error}</Text>
+            <TouchableOpacity
+              onPress={fetchTopScorers}
+              className="bg-red-600 px-6 py-2 rounded-xl"
+            >
+              <Text className="text-white font-bold">Coba Lagi</Text>
+            </TouchableOpacity>
           </View>
         ) : topScorers.length === 0 ? (
           <View className="items-center py-20">
@@ -74,47 +98,61 @@ export default function TopScorersScreen({ onPlayerClick }) {  // onPlayerClick 
               <Text className="w-10 text-center text-[10px] font-bold text-gray-400 uppercase">Assist</Text>
             </View>
 
-            {/* Scorers List */}
             <View className="overflow-hidden border-2 border-culos rounded-b-xl">
               {topScorers.map((scorer, idx) => {
                 const player = scorer.player || {};
                 const team = scorer.team || {};
-                
+
+                // FIX: Ambil dari scorer.total.goals / scorer.total.assists (SportMonks v3)
+                // dengan fallback ke scorer.goals / scorer.assists untuk kompatibilitas
+                const goals = scorer.total?.goals ?? scorer.goals ?? 0;
+                const assists = scorer.total?.assists ?? scorer.assists ?? 0;
+
                 return (
                   <TouchableOpacity
-                    key={idx}
-                    onPress={() => onPlayerClick && onPlayerClick(player.id)} // Siap untuk future player detail
-                    className={`flex-row items-center py-3 px-4 bg-equd ${idx !== topScorers.length - 1 ? 'border-b border-white/10' : ''}`}
+                    key={scorer.player_id || idx}
+                    onPress={() => onPlayerClick && onPlayerClick(player.id)}
+                    className={`flex-row items-center py-3 px-4 bg-equd ${
+                      idx !== topScorers.length - 1 ? 'border-b border-white/10' : ''
+                    }`}
                   >
-                    <Text className="w-8 text-center text-xs font-bold text-gray-400">{idx + 1}</Text>
-                    
+                    <Text className="w-8 text-center text-xs font-bold text-gray-400">
+                      {idx + 1}
+                    </Text>
+
                     <View className="flex-1 flex-row items-center gap-3 pl-1">
                       <View className="w-8 h-8 rounded-full bg-white/10 overflow-hidden">
-                        <Image 
-                          source={{ uri: player.image_path || 'https://placehold.co/32' }} 
-                          className="w-full h-full" 
-                          resizeMode="cover" 
+                        <Image
+                          source={{ uri: player.image_path || 'https://placehold.co/32' }}
+                          className="w-full h-full"
+                          resizeMode="cover"
                         />
                       </View>
-                      <View>
-                        <Text className="text-sm font-semibold text-white" numberOfLines={1}>{player.name || 'Unknown'}</Text>
-                        <Text className="text-[10px] text-gray-400">{team.name || ''}</Text>
+                      <View className="flex-1">
+                        <Text className="text-sm font-semibold text-white" numberOfLines={1}>
+                          {player.name || scorer.player_name || 'Unknown'}
+                        </Text>
+                        <Text className="text-[10px] text-gray-400" numberOfLines={1}>
+                          {team.name || ''}
+                        </Text>
                       </View>
                     </View>
 
                     <View className="w-12 items-center">
-                      <Text className="text-lg font-black text-white">{scorer.goals || 0}</Text>
+                      <Text className="text-lg font-black text-white">{goals}</Text>
                     </View>
-                    
+
                     <View className="w-10 items-center">
-                      <Text className="text-sm font-medium text-gray-300">{scorer.assists || 0}</Text>
+                      <Text className="text-sm font-medium text-gray-300">{assists}</Text>
                     </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
-            
-            <Text className="text-center text-[10px] text-gray-500 mt-6">Data dari SportMonks API</Text>
+
+            <Text className="text-center text-[10px] text-gray-500 mt-6">
+              Data dari SportMonks API
+            </Text>
           </View>
         )}
       </ScrollView>

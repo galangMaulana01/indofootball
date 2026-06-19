@@ -55,8 +55,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        culos: "#191919",
-        equd:"#111",
+        culos: "#0C0D11",
+        equd:"#010203",
       }
     }
   },
