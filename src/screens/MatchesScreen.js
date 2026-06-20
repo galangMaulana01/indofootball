@@ -14,7 +14,6 @@ const LiveIcon = () => (
   
 export default function MatchesScreen({ onMatchClick, onLeaguePress }) {  
   const todayStr = new Date().toISOString().split('T')[0];  
-  
   const [loading, setLoading] = useState(true);  
   const [refreshing, setRefreshing] = useState(false);  
   const [matches, setMatches] = useState([]);  
@@ -101,18 +100,52 @@ export default function MatchesScreen({ onMatchClick, onLeaguePress }) {
   return (  
     <View className="flex-1 bg-equd w-full">  
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FC0B12" />}>  
-        <View className="w-full h-56 relative bg-culos">  
-          {benner?.image_benner ? (  
-            <ImageBackground source={{ uri: benner.image_benner }} className="w-full h-full justify-end overflow-hidden" imageStyle={{ opacity: 0.6 }}>  
-              <View className="absolute inset-0 bg-gradient-to-t from-equd to-transparent" />  
-              <View className="p-6">
-                <Text className="text-white text-xl font-black leading-snug">{benner?.desc}</Text>  
-              </View>  
-            </ImageBackground>  
-          ) : (  
-            <View className="p-6 justify-end h-full"><Text className="text-gray-500 font-medium">Memuat info...</Text></View>  
-          )}  
-        </View>  
+        <View
+  className="mx-4 mt-4 overflow-hidden"
+  style={{
+    height: 200,
+    borderRadius: 24,
+  }}
+>
+  {benner?.image_benner ? (
+    <ImageBackground
+      source={{ uri: benner.image_benner }}
+      style={{ flex: 1, justifyContent: 'flex-end' }}
+      resizeMode="cover"
+    >
+     <View className="p-4">
+           <Text className="text-yellow-400 text-[5px]">Top News</Text>
+
+        <Text className="text-xl font-black text-white">
+          {benner?.desc}
+        </Text>
+
+        <Text
+          style={{
+            color: '#ccc',
+            fontSize: 12,
+            marginTop: 10,
+          }}
+        >
+          2h
+        </Text>
+      </View>
+    </ImageBackground>
+  ) : (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#111',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Text style={{ color: '#ffffff' }}>
+        Memuat berita...
+      </Text>
+    </View>
+  )}
+</View>  
   
         <View className="w-full bg-equd py-3">  
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4">  
@@ -156,7 +189,7 @@ export default function MatchesScreen({ onMatchClick, onLeaguePress }) {
               )}  
               {activeTab !== 'LIVE' && (  
                 <View className="mb-6">  
-                  <Text className="text-white font-black text-[11px] tracking-widest uppercase mb-4 px-1">{activeTab === todayStr ? "Jadwal Mendatang" : "Pertandingan"}</Text>  
+                  <Text className="text-white font-black text-[11px] tracking-widest uppercase mb-4 px-1">{activeTab === todayStr ? "Pertandingan" : "Pertandingan"}</Text>  
                   {matches.length === 0 ? (  
                     <View className="bg-culos py-12 rounded-2xl items-center"><Text className="text-gray-500 text-xs font-medium">Tidak ada pertandingan.</Text></View>  
                   ) : (  

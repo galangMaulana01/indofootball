@@ -1,11 +1,8 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { safeFetch } from '../utils/api';
 
-// --- Icons ---
 const TrophyIcon = ({ size = 16, color = "white" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><Path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><Path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><Path d="M4 22h16" /><Path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><Path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><Path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></Svg>
 );
@@ -30,8 +27,8 @@ export default function MatchDetailScreen({ matchId, goBack }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [matchData, setMatchData] = useState(null);
   const [standingsData, setStandingsData] = useState(null);
-  const [loadingStandings, setLoadingStandings] = useState(false);
-
+  const [loadingStandings, setLoadingStandings] = useState(null);
+const [leagueImg, setLeagueData] = useState(null);
   useEffect(() => {
     loadMatchDetail();
   }, [matchId]);
@@ -42,16 +39,18 @@ export default function MatchDetailScreen({ matchId, goBack }) {
     }
   }, [activeTab, matchData]);
 
-const loadMatchDetail = async () => {
-  setLoading(true);
-  try {
-    const json = await safeFetch(`/fixtures/${matchId}`);
-    const fixtureData = json.data;
-const liveData = await safeFetch('/livescores/inplay');
+  const loadMatchDetail = async () => {
+    setLoading(true);
+    try {
+      const json = await safeFetch(`/fixtures/${matchId}`);
+      const fixtureData = json.data;
+const leagueImg = fixtureData.league;
+setLeagueData(leagueImg);
+  const liveData = await safeFetch('/livescores/inplay');
 
-const liveFixture = liveData.data.find(
-  m => m.id === Number(matchId)
-);
+  const liveFixture = liveData.data.find(
+    m => m.id === Number(matchId)
+  );
 
     const homeTeam = fixtureData.participants?.find((p) => p.meta?.location === 'home') || {};
     const awayTeam = fixtureData.participants?.find((p) => p.meta?.location === 'away') || {};
@@ -60,13 +59,11 @@ const liveFixture = liveData.data.find(
     const awayScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'away')?.score?.goals ?? '0';
 
     const statusRaw = fixtureData.state?.short_name || 'NS';
-console.log('STATE', fixtureData.periods);
-const activePeriod =
-  liveFixture?.periods?.find(p => p.ticking === true) ||
-  liveFixture?.periods?.[liveFixture?.periods?.length - 1];
+    const activePeriod =
+    liveFixture?.periods?.find(p => p.ticking === true) ||
+    liveFixture?.periods?.[liveFixture?.periods?.length - 1];
     let statusLabel = statusRaw; // Default ke status awal
     let isLive = false;
-console.log('PERIODS', fixtureData.periods);
     if (activePeriod) {
       statusLabel = `${activePeriod.minutes}'`;
       isLive = true;
@@ -75,11 +72,9 @@ console.log('PERIODS', fixtureData.periods);
     } else if (['FT', 'AET', 'FT_PEN'].includes(statusRaw)) {
       statusLabel = 'FT';
     } else if (statusRaw === 'NS') {
-      // Jika belum mulai
       statusLabel = 'Belum Mulai';
     }
 
-    // 7. [LOGIC_TAG: UPDATE_STATE]
     setMatchData({
       fixture: fixtureData,
       homeTeam,
@@ -90,12 +85,12 @@ console.log('PERIODS', fixtureData.periods);
       isLive
     });
 
-  } catch (err) {
-    console.log('Error di loadMatchDetail:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.log('Error di loadMatchDetail:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -133,10 +128,6 @@ console.log('PERIODS', fixtureData.periods);
     if (!matchData) return null;
     const { fixture, homeTeam, awayTeam } = matchData;
     const events = fixture.events || [];
-    const goalEvents = events.filter((e) => [14, 16, 17].includes(e.type_id));
-    const homeScorers = goalEvents.filter((e) => e.participant_id === homeTeam.id);
-    const awayScorers = goalEvents.filter((e) => e.participant_id === awayTeam.id);
-
     const startAt = fixture.starting_at || '';
     let matchDate = '00:00';
     if (startAt) {
@@ -151,9 +142,9 @@ console.log('PERIODS', fixtureData.periods);
       <View className="mb-8">
         {possession && (
           <View className="bg-culos rounded-2xl p-5 mb-4 shadow-sm">
-            <Text className="text-white font-bold text-xs uppercase tracking-wider text-center mb-3">Ball Possession</Text>
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-white font-black text-sm">{possession.home}%</Text>
+              <Text className="text-white font-semibold text-xs uppercase">Ball Posession</Text>
               <Text className="text-white font-black text-sm">{possession.away}%</Text>
             </View>
             <View className="w-full h-3 rounded-full overflow-hidden flex-row">
@@ -179,28 +170,6 @@ console.log('PERIODS', fixtureData.periods);
               <View className="bg-red-600" style={{ width: `${prediction.predictions?.home || 0}%` }} />
               <View className="bg-gray-500" style={{ width: `${prediction.predictions?.draw || 0}%` }} />
               <View className="bg-yellow-500" style={{ width: `${prediction.predictions?.away || 0}%` }} />
-            </View>
-          </View>
-        )}
-
-        {(homeScorers.length > 0 || awayScorers.length > 0) && (
-          <View className="bg-culos rounded-2xl p-5 mb-4 shadow-sm">
-            <View className="flex-row">
-              <View className="flex-1 pr-3">
-                {homeScorers.map((e, i) => (
-                  <Text key={i} className="text-xs text-gray-300 font-medium mb-2">
-                    {e.minute}' - {e.player_name} {e.type_id === 16 ? '(P)' : e.type_id === 17 ? '(OG)' : ''}
-                  </Text>
-                ))}
-              </View>
-              <View className="w-px bg-white/10" />
-              <View className="flex-1 pl-3 items-end">
-                {awayScorers.map((e, i) => (
-                  <Text key={i} className="text-xs text-gray-300 font-medium mb-2">
-                    {e.player_name} {e.type_id === 16 ? '(P)' : e.type_id === 17 ? '(OG)' : ''} - {e.minute}'
-                  </Text>
-                ))}
-              </View>
             </View>
           </View>
         )}
@@ -272,7 +241,6 @@ console.log('PERIODS', fixtureData.periods);
                       else if (e.type_id === 17) { IconCmp = <BallIcon color="#ef4444" />; label = ' (OG)'; }
                       else if (e.type_id === 19) IconCmp = <View className="w-2.5 h-3.5 bg-yellow-400 rounded-[2px]" />;
                       else if (e.type_id === 20) IconCmp = <View className="w-2.5 h-3.5 bg-red-600 rounded-[2px]" />;
-                      
                       return (
                         <View key={idx} className="flex-row items-center gap-3 w-full">
                           <View className="w-4 items-center justify-center">{IconCmp}</View>
@@ -300,7 +268,6 @@ console.log('PERIODS', fixtureData.periods);
                       else if (e.type_id === 17) { IconCmp = <BallIcon color="#ef4444" />; label = ' (OG)'; }
                       else if (e.type_id === 19) IconCmp = <View className="w-2.5 h-3.5 bg-yellow-400 rounded-[2px]" />;
                       else if (e.type_id === 20) IconCmp = <View className="w-2.5 h-3.5 bg-red-600 rounded-[2px]" />;
-                      
                       return (
                         <View key={idx} className="flex-row items-center gap-3 w-full justify-end">
                           <Text className="text-white text-xs font-bold text-right" numberOfLines={1}>{e.player_name}{label}</Text>
@@ -341,9 +308,12 @@ console.log('PERIODS', fixtureData.periods);
 
           return (
             <View key={i} className="mb-5">
-              <Text className="text-gray-400 font-bold text-[10px] uppercase tracking-wider text-center mb-2">{type.name}</Text>
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-white text-xs">{homeVal}</Text>
+                <Text className="text-white text-xs uppercase">{type.name}</Text>
+                <Text className="text-white text-xs">{awayVal}</Text>
+              </View>
               <View className="flex-row items-center justify-between">
-                <Text className="text-white font-bold text-xs w-8 text-left">{homeVal}</Text>
                 <View className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex-row">
                   <View className="h-full bg-red-600 rounded-full" style={{ width: `${homePct}%` }} />
                 </View>
@@ -351,7 +321,6 @@ console.log('PERIODS', fixtureData.periods);
                 <View className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden flex-row justify-end">
                   <View className="h-full bg-gray-500 rounded-full" style={{ width: `${awayPct}%` }} />
                 </View>
-                <Text className="text-white font-bold text-xs w-8 text-right">{awayVal}</Text>
               </View>
             </View>
           );
@@ -475,46 +444,67 @@ console.log('PERIODS', fixtureData.periods);
     );
   }
 
-  return (
-    <View className="flex-1 bg-equd">
-      <ImageBackground source={matchData?.venueImg ? { uri: matchData.venueImg } : undefined} className="relative z-10 bg-equd pt-12 pb-8">
-        <View className="absolute inset-0 bg-equd/90" />
-        <View className="max-w-2xl mx-auto px-6 w-full relative z-20">
-          <TouchableOpacity onPress={goBack} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center mb-6">
-            <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><Path d="M15 19l-7-7 7-7" /></Svg>
-          </TouchableOpacity>
+  const goalEvents = matchData?.fixture?.events?.filter(
+    (e) => [14, 16, 17].includes(e.type_id)
+  ) || [];
 
-          {loading || !matchData ? (
-            <View className="py-12 items-center justify-center"><ActivityIndicator size="large" color="#FC0B12" /></View>
-          ) : (
+  const homeScorers = goalEvents.filter(
+    (e) => e.participant_id === matchData?.homeTeam?.id
+  );
+
+  const awayScorers = goalEvents.filter(
+    (e) => e.participant_id === matchData?.awayTeam?.id
+  );
+
+
+return (
+  <View className="flex-1 bg-equd">
+    <View className="pt-12 pb-8">
+      <View className="max-w-2xl mx-auto px-6 w-full">
+        <TouchableOpacity onPress={goBack} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center mb-6">
+          <Svg width={20} height={20} fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><Path d="M15 19l-7-7 7-7" /></Svg>
+        </TouchableOpacity>
+
+        {loading || !matchData ? (
+          <View className="py-12 items-center justify-center">
+            <ActivityIndicator size="large" color="#FC0B12" />
+          </View>
+        ) : (
+          <>
             <View className="flex-row items-center justify-between">
               <View className="items-center w-[30%]">
                 <Image source={{ uri: matchData.homeTeam.image_path }} className="w-16 h-16 mb-3" resizeMode="contain" />
                 <Text className="text-xs font-bold text-white text-center leading-snug">{matchData.homeTeam.name}</Text>
               </View>
+
               <View className="items-center w-[40%]">
                 <Text className="text-5xl font-black tracking-widest text-white mb-2">{matchData.homeScore}<Text className="text-white"> - </Text>{matchData.awayScore}</Text>
-
-
-
-
-<View className="px-3 py-1 rounded-full">
-  <Text className={`text-[10px] font-semibold tracking-widest uppercase ${matchData.isLive ? 'text-red-500' : 'text-gray-300'}`}>
-{matchData.statusLabel}
-  </Text>
-</View>
-
-
-
+                <View className="px-3 py-1 rounded-full">
+                  <Text className={`text-xs font-semibold tracking-widest uppercase ${matchData.isLive ? 'text-red-500' : 'text-gray-300'}`}>{matchData.statusLabel}</Text>
+                </View>
               </View>
+
               <View className="items-center w-[30%]">
                 <Image source={{ uri: matchData.awayTeam.image_path }} className="w-16 h-16 mb-3" resizeMode="contain" />
                 <Text className="text-xs font-bold text-white text-center leading-snug">{matchData.awayTeam.name}</Text>
               </View>
             </View>
-          )}
-        </View>
-      </ImageBackground>
+
+            {(homeScorers.length > 0 || awayScorers.length > 0) && (
+              <View className="mt-4 flex-row justify-between">
+                <View className="flex-1 pr-2">
+                  {homeScorers.map((e, i) => <Text key={`home-${i}`} className="text-xs text-white mb-1">{e.minute}' {e.player_name}{e.type_id === 16 ? ' (P)' : ''}{e.type_id === 17 ? ' (OG)' : ''}</Text>)}
+                </View>
+
+                <View className="flex-1 pl-2 items-end">
+                  {awayScorers.map((e, i) => <Text key={`away-${i}`} className="text-xs text-white mb-1 text-right">{e.player_name}{e.type_id === 16 ? ' (P)' : ''}{e.type_id === 17 ? ' (OG)' : ''} {e.minute}'</Text>)}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </View>
 
       <View className="bg-equd border-b border-white/5 z-50">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="max-w-2xl mx-auto w-full px-4 py-2">
