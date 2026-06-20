@@ -68,7 +68,7 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
           const json = await safeFetch(`/teams/search/${query}`);
           setSearchTeams(json?.data || []);
         } catch (e) {
-          console.error('Search BE error:', e);
+          console.log('Search BE error:', e);
         } finally {
           setIsSearching(false);
         }
@@ -122,8 +122,7 @@ export default function TeamScreen({ teamId: initialTeamId, goBack }) {
         setSquadPositions(sortedPositions);
       }
     } catch (e) {
-      console.error('TeamScreen error:', e);
-      setError(e.message || 'Gagal memuat data tim');
+      console.log('TeamScreen error:', e);
       setSquadPositions([]);
     } finally {
       setLoading(false);

@@ -42,53 +42,55 @@ export default function MatchesScreen({ onMatchClick, onLeaguePress }) {
     return tabs;  
   };  
   
-  const handleLeaguePress = async (league) => {  
-    try {  
-      const res = await safeFetch(`/leagues/${league.id}?include=seasons`);  
-      const full = res?.data;  
-      const seasonId = full?.currentseason?.id || full?.seasons?.[0]?.id;  
-      if (seasonId) activeSeasonIdGlobal = seasonId;  
-      onLeaguePress?.(league);  
-    } catch (e) {  
-      console.error('League detail error:', e);  
-      onLeaguePress?.(league);  
-    }  
-  };  
+  const handleLeaguePress = async (league) => {
+    try {
+      const res = await safeFetch(`/leagues/${league.id}?include=seasons`);
+      const full = res?.data;
+      const seasonId = full?.currentseason?.id || full?.seasons?.[0]?.id;
+      if (seasonId) activeSeasonIdGlobal = seasonId;
+      onLeaguePress?.(league);
+    } catch (e) {
+      console.log('League detail error:', e);
+      onLeaguePress?.(league);
+    }
+  };
   
-  const fetchAllData = async (targetTab = activeTab) => {  
-    setLoading(true);  
-    setError(null);  
-  
-    try {  
-      if (!benner) {  
-        const bennerJson = await safeFetch('/benner');  
-        setBenner(bennerJson?.data || bennerJson);  
-      }  
-  
-      const liveJson = await safeFetch('/livescores/inplay?include=participants;league;venue');  
-      setLiveMatches(liveJson?.data || []);                                                                                                           
-      
-      const leaguesJson = await safeFetch('/leagues');  
-      const leagues = leaguesJson?.data || [];  
-  
-      const map = {};  
-      leagues.forEach(l => { map[l.id] = l; });  
-      setLeaguesMap(map);                                                                                                                             
-      
-      if (targetTab !== 'LIVE') {                                                                                                                         
-        const dateJson = await safeFetch(`/fixtures/date/${targetTab}?include=participants;league;scores;state`);  
-        const matchesData = dateJson?.data || [];  
-        setMatches(matchesData);  
-      } else {  
-        setMatches([]);  
-      }  
-    } catch (err) {  
-      console.error(err);  
-      setError(err.message);  
-    } finally {  
-      setLoading(false);  
-    }  
-  };  
+  const fetchAllData = async (targetTab = activeTab) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!benner) {
+        const bennerJson = await safeFetch('/benner');
+        setBenner(bennerJson?.data || bennerJson);
+      }
+
+      // Tambahkan 'scores;state' di akhir string include
+      const liveJson = await safeFetch('/livescores/inplay?include=participants;league;venue;scores;state');
+      setLiveMatches(liveJson?.data || []);                                                                                                       
+
+      const leaguesJson = await safeFetch('/leagues');
+      const leagues = leaguesJson?.data || [];
+
+      const map = {};
+      leagues.forEach(l => { map[l.id] = l; });
+      setLeaguesMap(map);                                                                                                                         
+
+      if (targetTab !== 'LIVE') {                                                                                                                 
+        const dateJson = await safeFetch(`/fixtures/date/${targetTab}?include=participants;league;scores;state`);
+        const matchesData = dateJson?.data || [];
+        setMatches(matchesData);
+      } else {
+        setMatches([]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   
   const onRefresh = async () => {  
     setRefreshing(true);  
@@ -178,61 +180,78 @@ export default function MatchesScreen({ onMatchClick, onLeaguePress }) {
   );  
 }  
   
-const MatchCard = ({ match, isLive = false, onPress, onLeaguePress, leaguesMap = {} }) => {  
-  const participants = match.participants || [];  
-  const home = participants.find((p) => p.meta?.location === 'home') || participants[0];  
-  const away = participants.find((p) => p.meta?.location === 'away') || participants[1];  
-  
-  const scores = Array.isArray(match.scores) ? match.scores : [];  
-  const homeScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'home')?.score?.goals ?? '-';  
-  const awayScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'away')?.score?.goals ?? '-';  
-  
-  const statusShort = match.state?.short_name || match.state?.state || 'NS';  
-  const isFinished = ['FT', 'AET', 'FT_PEN', 'CANCL', 'POSTP', 'AWARDED'].includes(statusShort);  
-  const hasScore = homeScore !== '-' && awayScore !== '-';  
-  const league = leaguesMap[match.league?.id] || match.league;  
-  const timeOrMinute = isLive ? `${match.minute || match.state?.minute || '?'}'` : isFinished ? statusShort : match.starting_at ? new Date(match.starting_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'VS';  
-  
-  return (  
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} className="bg-culos rounded-xl p-2 mb-3">  
-      <TouchableOpacity  
-        className="flex-row items-center mb-2"  
-        onPress={() => onLeaguePress?.(match.league)}  
-      >  
-        <Image source={{ uri: match.league?.image_path }} className="w-6 h-6 rounded mr-2" resizeMode="contain" />  
-        <Text className="text-sm text-gray-200 font-bold tracking-wider">{match.league?.name}</Text>
-      </TouchableOpacity>  
+const MatchCard = ({ match, isLive = false, onPress, onLeaguePress, leaguesMap = {} }) => {
+  const participants = match.participants || [];
+  const home = participants.find((p) => p.meta?.location === 'home') || participants[0];
+  const away = participants.find((p) => p.meta?.location === 'away') || participants[1];
 
-      <View className="flex-row justify-between items-center px-1">  
-        <View className="items-center flex-1">  
+  const scores = Array.isArray(match.scores) ? match.scores : [];
+  const homeScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'home')?.score?.goals ?? '-';
+  const awayScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'away')?.score?.goals ?? '-';
+
+  const statusShort = match.state?.short_name || match.state?.state || 'NS';
+  const isFinished = ['FT', 'AET', 'FT_PEN', 'CANCL', 'POSTP', 'AWARDED'].includes(statusShort);
+  const hasScore = homeScore !== '-' && awayScore !== '-';
+  const league = leaguesMap[match.league?.id] || match.league;
+
+  // --- LOGIKA BARU UNTUK MENGAMBIL MENIT DARI "PERIODS" ---
+  let activeMinute = match.minute || match.state?.minute;
+  if (!activeMinute && Array.isArray(match.periods) && match.periods.length > 0) {
+    // Mengambil periode terakhir (misal babak ke-1 atau ke-2 yang sedang berjalan)
+    const lastPeriod = match.periods[match.periods.length - 1];
+    activeMinute = lastPeriod.minutes;
+  }
+  const displayMinute = activeMinute ? `${activeMinute}'` : "?'";
+  // ---------------------------------------------------------
+
+  const timeOrMinute = isLive 
+    ? displayMinute 
+    : isFinished 
+      ? statusShort 
+      : match.starting_at 
+        ? new Date(match.starting_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) 
+        : 'VS';
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} className="bg-culos rounded-xl p-2 mb-3">
+      <TouchableOpacity
+        className="flex-row items-center mb-2"
+        onPress={() => onLeaguePress?.(match.league)}
+      >
+        <Image source={{ uri: match.league?.image_path }} className="w-6 h-6 rounded mr-2" resizeMode="contain" />
+        <Text className="text-sm text-gray-200 font-bold tracking-wider">{match.league?.name}</Text>
+      </TouchableOpacity>
+
+      <View className="flex-row justify-between items-center px-1">
+        <View className="items-center flex-1">
           <Image source={{ uri: home?.image_path }} className="w-10 h-10 mb-2" resizeMode="contain" />
-          <Text className="font-bold text-white text-xs text-center leading-tight" numberOfLines={2}>{home?.name}</Text>  
-        </View>  
-  
-        <View className="items-center justify-center px-4 w-1/3">  
-          {isLive ? (  
-            <>  
+          <Text className="font-bold text-white text-xs text-center leading-tight" numberOfLines={2}>{home?.name}</Text>
+        </View>
+
+        <View className="items-center justify-center px-4 w-1/3">
+          {isLive ? (
+            <>
               <Text className="text-xl font-black text-white tracking-widest">{homeScore} - {awayScore}</Text>
-              <Text className="text-red-500 font-black text-xs mb-1">{timeOrMinute}</Text>  
-            </>  
-          ) : isFinished && hasScore ? (  
-            <>  
-              <Text className="text-xl font-black text-white tracking-widest">{homeScore} - {awayScore}</Text>  
-              <Text className="text-gray-300 font-bold text-xs mb-1">{timeOrMinute}</Text>  
-            </>  
-          ) : (  
-            <>  
-              <Text className="text-white font-black text-xl mb-1">VS</Text>  
-              <Text className="text-gray-400 text-[10px] font-bold">{timeOrMinute}</Text>  
-            </>  
-          )}  
-        </View>  
-        
-        <View className="items-center flex-1">  
-          <Image source={{ uri: away?.image_path }} className="w-10 h-10 mb-2" resizeMode="contain" />  
-          <Text className="font-bold text-white text-xs text-center leading-tight" numberOfLines={2}>{away?.name}</Text>  
-        </View>  
-      </View>  
-    </TouchableOpacity>  
-  );  
+              <Text className="text-red-500 font-black text-xs mb-1">{timeOrMinute}</Text>
+            </>
+          ) : isFinished && hasScore ? (
+            <>
+              <Text className="text-xl font-black text-white tracking-widest">{homeScore} - {awayScore}</Text>
+              <Text className="text-gray-300 font-bold text-xs mb-1">{timeOrMinute}</Text>
+            </>
+          ) : (
+            <>
+              <Text className="text-white font-black text-xl mb-1">VS</Text>
+              <Text className="text-gray-400 text-[10px] font-bold">{timeOrMinute}</Text>
+            </>
+          )}
+        </View>
+
+        <View className="items-center flex-1">
+          <Image source={{ uri: away?.image_path }} className="w-10 h-10 mb-2" resizeMode="contain" />
+          <Text className="font-bold text-white text-xs text-center leading-tight" numberOfLines={2}>{away?.name}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 };

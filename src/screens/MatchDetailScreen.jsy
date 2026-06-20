@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -42,60 +41,73 @@ export default function MatchDetailScreen({ matchId, goBack }) {
     }
   }, [activeTab, matchData]);
 
-const loadMatchDetail = async () => {
-  setLoading(true);
-  try {
-    const json = await safeFetch(`/fixtures/${matchId}`);
-    const fixtureData = json.data;
-const liveData = await safeFetch('/livescores/inplay');
 
-const liveFixture = liveData.data.find(
-  m => m.id === Number(matchId)
-);
+  const loadMatchDetail = async () => {
+    setLoading(true);
+    try {
+      // KUNCI PERBAIKAN: Tambahkan include secara lengkap di URL
+      const json = await safeFetch(`/fixtures/${matchId}?include=participants;venue;scores;state;periods;events;statistics;lineups;predictions`);
+      
+      const fixtureData = json.data;
+      if (!fixtureData) throw new Error('Tidak ada data pertandingan');
 
-    const homeTeam = fixtureData.participants?.find((p) => p.meta?.location === 'home') || {};
-    const awayTeam = fixtureData.participants?.find((p) => p.meta?.location === 'away') || {};
-    const scores = fixtureData.scores || [];
-    const homeScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'home')?.score?.goals ?? '0';
-    const awayScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'away')?.score?.goals ?? '0';
+      const participants = fixtureData.participants || [];
+      const homeTeam = participants.find((p) => p.meta?.location === 'home') || {};
+      const awayTeam = participants.find((p) => p.meta?.location === 'away') || {};
 
-    const statusRaw = fixtureData.state?.short_name || 'NS';
-console.log('STATE', fixtureData.periods);
-const activePeriod =
-  liveFixture?.periods?.find(p => p.ticking === true) ||
-  liveFixture?.periods?.[liveFixture?.periods?.length - 1];
-    let statusLabel = statusRaw; // Default ke status awal
-    let isLive = false;
-console.log('PERIODS', fixtureData.periods);
-    if (activePeriod) {
-      statusLabel = `${activePeriod.minutes}'`;
-      isLive = true;
-    } else if (statusRaw === 'HT') {
-      statusLabel = 'HT';
-    } else if (['FT', 'AET', 'FT_PEN'].includes(statusRaw)) {
-      statusLabel = 'FT';
-    } else if (statusRaw === 'NS') {
-      // Jika belum mulai
-      statusLabel = 'Belum Mulai';
+      const venue = fixtureData.venue || {};
+      const venueImg = venue.image_path || null;
+
+      const scores = Array.isArray(fixtureData.scores) ? fixtureData.scores : [];
+      const homeScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'home')?.score?.goals ?? '0';
+      const awayScore = scores.find((s) => s.description === 'CURRENT' && s.score?.participant === 'away')?.score?.goals ?? '0';
+
+      // Ambil short_name atau state agar lebih fleksibel
+      const statusRaw = fixtureData.state?.short_name || fixtureData.state?.state || 'NS';
+
+      // Deteksi status selesai atau belum
+      const finishedStates = ['FT', 'AET', 'FT_PEN', 'CANCL', 'POSTP', 'AWARDED'];
+      const isFinished = finishedStates.includes(statusRaw);
+      const isNS = statusRaw === 'NS' || statusRaw === 'TBA';
+
+      const isLive = !isFinished && !isNS;
+      let statusLabel = statusRaw;
+
+      if (isFinished) {
+        statusLabel = statusRaw;
+      } else if (isNS) {
+        statusLabel = 'Belum mulai';
+      }
+
+      // --- Ekstrak menit jika statusnya Live ---
+      if (isLive) {
+        let activeMinute = fixtureData.periods?.minutes;
+        if (statusRaw === 'HT') {
+          statusLabel = 'HT';
+        } else if (activeMinute) {
+          statusLabel = `${activeMinute}'`;
+        } else {
+          // Fallback terakhir jika API benar-benar tidak mengirim menit
+          statusLabel = "LIVE"; 
+        }
+      }
+
+      setMatchData({
+        fixture: fixtureData,
+        homeTeam,
+        awayTeam,
+        homeScore,
+        awayScore,
+        statusLabel,
+        venueImg,
+        isLive
+      });
+    } catch (err) {
+      console.log('loadMatchDetail error:', err);
+    } finally {
+      setLoading(false);
     }
-
-    // 7. [LOGIC_TAG: UPDATE_STATE]
-    setMatchData({
-      fixture: fixtureData,
-      homeTeam,
-      awayTeam,
-      homeScore,
-      awayScore,
-      statusLabel,
-      isLive
-    });
-
-  } catch (err) {
-    console.log('Error di loadMatchDetail:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
 
@@ -500,7 +512,7 @@ console.log('PERIODS', fixtureData.periods);
 
 <View className="px-3 py-1 rounded-full">
   <Text className={`text-[10px] font-semibold tracking-widest uppercase ${matchData.isLive ? 'text-red-500' : 'text-gray-300'}`}>
-{matchData.statusLabel}
+    {matchData.statusLabel}
   </Text>
 </View>
 
